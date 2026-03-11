@@ -154,11 +154,11 @@
     "webpack-resolve-config-plugin": "^1.0.0"
   },
   "dependencies": {
-    "@ant-design/icons": "^4.7.13",
+    "@ant-design/icons": "^5.5.0",
     "@easy_vscode/core": "^1.7.2",
     "@easy_vscode/webview": "^1.6.8",
     "ahooks": "^3.7.5",
-    "antd": "^4.16.8",
+    "antd": "^5.22.0",
     "axios": "^0.24.0",
     "clipboard": "^2.0.8",
     "fs-extra": "^10.0.0",
@@ -172,6 +172,7 @@
     "styled-components": "^5.3.0"
   },
   "resolutions": {
-    "webpack": "5.73.0"
+    "webpack": "5.73.0",
+    "rc-util": "5.44.4"
   }
 }

@@ -1,4 +1,4 @@
-import { Dropdown, Menu, message } from 'antd'
+import { Dropdown, message } from 'antd'
 import { callVscode } from '@easy_vscode/webview'
 import React from 'react'
 import { MESSAGE_CMD } from '../../../constants'
@@ -42,33 +42,28 @@ const ImageInfo: React.FC<any> = ({ img, onDeleteImage, size }) => {
       handler()
     }
   }
-  const menu = (
-    <Menu
-      onClick={handleMenuClick}
-      items={[
-        {
-          label: `Copy "${img.fileName}"`,
-          key: MenuKeys.CopyFileName,
-          icon: <CopyOutlined style={{ color: THEME_COLOR }} />
-        },
-        {
-          label: `Copy "${img.path}"`,
-          key: MenuKeys.CopyPath,
-          icon: <CopyOutlined style={{ color: THEME_COLOR }} />
-        },
-        {
-          label: `Copy Base64 string`,
-          key: MenuKeys.CopyBase64,
-          icon: <CopyOutlined style={{ color: THEME_COLOR }} />
-        },
-        {
-          label: 'Delete File',
-          key: MenuKeys.DeleteFile,
-          icon: <DeleteOutlined style={{ color: THEME_COLOR }} />
-        }
-      ]}
-    />
-  )
+  const menuItems = [
+    {
+      label: `Copy "${img.fileName}"`,
+      key: MenuKeys.CopyFileName,
+      icon: <CopyOutlined style={{ color: THEME_COLOR }} />
+    },
+    {
+      label: `Copy "${img.path}"`,
+      key: MenuKeys.CopyPath,
+      icon: <CopyOutlined style={{ color: THEME_COLOR }} />
+    },
+    {
+      label: `Copy Base64 string`,
+      key: MenuKeys.CopyBase64,
+      icon: <CopyOutlined style={{ color: THEME_COLOR }} />
+    },
+    {
+      label: 'Delete File',
+      key: MenuKeys.DeleteFile,
+      icon: <DeleteOutlined style={{ color: THEME_COLOR }} />
+    }
+  ]
   const limitLength = Math.round(size / 4)
   let displayName
   if (size <= 10) {
@@ -87,7 +82,7 @@ const ImageInfo: React.FC<any> = ({ img, onDeleteImage, size }) => {
   }
   return (
     <StyleImageInfo>
-      <Dropdown overlay={menu}>
+      <Dropdown menu={{ items: menuItems, onClick: handleMenuClick }}>
         <StyleImageName style={{ width: `${size}px` }}>{displayName}</StyleImageName>
       </Dropdown>
     </StyleImageInfo>
