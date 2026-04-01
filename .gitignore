@@ -9,4 +9,4 @@ projectsConfig/
 *.vsix
 nodejs/
 github-issues
-ai-rules
+ai-*/
