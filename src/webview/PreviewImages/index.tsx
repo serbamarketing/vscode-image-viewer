@@ -13,7 +13,7 @@ import {
   Tag,
   Tooltip
 } from 'antd'
-import { FolderOpenTwoTone, InfoCircleOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons'
+import { FolderOpenTwoTone, InfoCircleOutlined, SearchOutlined } from '@ant-design/icons'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BACKGROUND_COLOR_OPTIONS, DEFAULT_BACKGROUND_COLOR, DEFAULT_IMAGE_SIZE, MESSAGE_CMD } from '../../constants'
 import { callVscode } from '@easy_vscode/webview'

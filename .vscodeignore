@@ -16,5 +16,5 @@ yarn.lock
 contribute.md
 
 webpack.extension.js
-easyVscodeConfig/**
+scaffold/**
 projectsConfig/**

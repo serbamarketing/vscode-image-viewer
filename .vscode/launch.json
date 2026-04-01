@@ -1,7 +1,14 @@
-// A launch configuration that compiles the extension and then opens it inside a new window
-// Use IntelliSense to learn about possible attributes.
-// Hover to view descriptions of existing attributes.
-// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+// A launch configuration that compiles the extension and then opens it inside a new window.
+//
+// preLaunchTask "Watch Extension" (tasks.json): yarn watch + yarn ui-watch — extension → dist/,
+// webview → distWebview/ via scaffold/webview.webpack.js. The extension loads the webview from
+// disk, not from a dev server URL.
+//
+// Browser-only / HMR: run `yarn ui-dev` in another terminal (webpack-dev-server; this template
+// uses port 5000 by default). On http origins, @easy_vscode/webview does not call acquireVsCodeApi;
+// callVscode posts to a no-op unless you mock postMessage / window "message" (e.g. vscodeCallback).
+//
+// https://go.microsoft.com/fwlink/?linkid=830387
 {
   "version": "0.2.0",
   "configurations": [

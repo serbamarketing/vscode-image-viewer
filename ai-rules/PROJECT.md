@@ -76,7 +76,7 @@ vscode-image-viewer/
 │           ├── ImageInfo/        # 图片信息与操作
 │           ├── ImageLazyLoad/   # 懒加载图片组件
 │           └── SettingsModal/   # 设置弹窗
-├── easyVscodeConfig/             # Webview Webpack 配置
+├── scaffold/                     # Webview Webpack 入口 + vendored bundler（见 scaffold/README.md）
 ├── assets/                       # 静态资源
 ├── webpack.extension.js          # 扩展端 Webpack 配置
 └── package.json
@@ -160,6 +160,7 @@ vscode-image-viewer/
 | `yarn` | 安装依赖 |
 | `yarn compile` | 编译扩展 |
 | `yarn watch` | 监听编译 |
+| `yarn vendor:template` | 从 `easy-vscode/webview-templates` 同步 `scaffold/bundler` 并生成 `scaffold/webview.webpack.js`（新 clone 或换模板时；可加 `-- --force`） |
 | `yarn ui-dev` | 启动 Webview 开发服务器 |
 | `yarn ui-build` | 构建 Webview |
 | `yarn package` | 完整打包（含 Webview 构建） |
