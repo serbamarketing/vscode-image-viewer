@@ -33,8 +33,13 @@ function parseArgs() {
 }
 
 function getWebviewTemplatesRoot() {
-  const rel = path.join(demoRoot, '..', 'easy-vscode', 'webview-templates')
-  if (fs.existsSync(rel)) return rel
+  const candidates = [
+    path.join(demoRoot, '..', '..', 'webview-templates'),
+    path.join(demoRoot, '..', 'easy-vscode', 'webview-templates')
+  ]
+  for (const rel of candidates) {
+    if (fs.existsSync(rel)) return rel
+  }
   if (process.env.EASY_VSCODE_ROOT) {
     const b = path.join(path.resolve(process.env.EASY_VSCODE_ROOT), 'webview-templates')
     if (fs.existsSync(b)) return b
@@ -181,8 +186,9 @@ async function main() {
 
   if (!root || templates.length === 0) {
     console.error(
-      '[vendor:template] No templates found. Expected directory:\n' +
-        `  ${path.join(demoRoot, '..', 'easy-vscode', 'webview-templates')}\n` +
+      '[vendor:template] No templates found. Expected one of:\n' +
+        `  ${path.join(demoRoot, '..', '..', 'webview-templates')} (extension inside easy-vscode repo)\n` +
+        `  ${path.join(demoRoot, '..', 'easy-vscode', 'webview-templates')} (sibling monorepo layout)\n` +
         'Or set EASY_VSCODE_ROOT to the easy-vscode repo root.'
     )
     process.exit(1)
