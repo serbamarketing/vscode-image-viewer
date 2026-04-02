@@ -3,6 +3,10 @@ out
 dist
 distWebview
 node_modules
+.DS_Store
+projectsConfig/
 .vscode-test/
 *.vsix
 nodejs/
+github-issues
+ai-*/

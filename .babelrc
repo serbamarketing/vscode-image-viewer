@@ -12,13 +12,6 @@
     ["@babel/plugin-proposal-private-methods", { "loose": true }],
     ["babel-plugin-styled-components", { "ssr": false }],
     "@babel/plugin-syntax-dynamic-import",
-    "react-hot-loader/babel",
-    [
-      "import",
-      {
-        "libraryName": "antd",
-        "style": true
-      }
-    ]
+    "react-hot-loader/babel"
   ]
 }

@@ -1,0 +1,230 @@
+#!/usr/bin/env node
+/**
+ * Dev-only: copy easy-vscode/webview-templates/<template>/ → ./scaffold/bundler/
+ * and write ./scaffold/webview.webpack.js (Webpack CLI entry).
+ *
+ * Usage:
+ *   yarn vendor:template
+ *   yarn vendor:template -- --force
+ *   yarn vendor:template -- --template minimal-react
+ *   yarn vendor:template -- --template antd-less
+ *
+ * Interactive menu uses Node readline only (no extra npm deps). Non-TTY / CI uses
+ * package.json "webviewVendorTemplate" if set, else first sorted template, or use --template.
+ *
+ * Layout: see scaffold/README.md (src/ = your code, scaffold/ = tooling + vendored template).
+ */
+const fs = require('fs')
+const path = require('path')
+const readline = require('readline')
+
+const demoRoot = path.resolve(__dirname, '..')
+const destDir = path.join(demoRoot, 'scaffold', 'bundler')
+
+function parseArgs() {
+  const args = process.argv.slice(2)
+  let force = false
+  let template = null
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--force') force = true
+    else if (args[i] === '--template' && args[i + 1]) template = args[++i]
+  }
+  return { force, template }
+}
+
+function getWebviewTemplatesRoot() {
+  const candidates = [
+    path.join(demoRoot, '..', '..', 'webview-templates'),
+    path.join(demoRoot, '..', 'easy-vscode', 'webview-templates')
+  ]
+  for (const rel of candidates) {
+    if (fs.existsSync(rel)) return rel
+  }
+  if (process.env.EASY_VSCODE_ROOT) {
+    const b = path.join(path.resolve(process.env.EASY_VSCODE_ROOT), 'webview-templates')
+    if (fs.existsSync(b)) return b
+  }
+  return null
+}
+
+function readFactoryExportName(templateDir) {
+  const fp = path.join(templateDir, 'webpack.factory.js')
+  const js = fs.readFileSync(fp, 'utf8')
+  const m = js.match(/function\s+(create\w+WebviewWebpackConfig)\s*\(/)
+  if (!m) {
+    throw new Error(`Cannot find create*WebviewWebpackConfig factory in ${fp}`)
+  }
+  return m[1]
+}
+
+function discoverTemplates() {
+  const root = getWebviewTemplatesRoot()
+  if (!root) return { root: null, templates: [] }
+
+  const templates = []
+  for (const ent of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!ent.isDirectory()) continue
+    const id = ent.name
+    const dir = path.join(root, id)
+    if (!fs.existsSync(path.join(dir, 'webpack.factory.js'))) continue
+    try {
+      const factoryExport = readFactoryExportName(dir)
+      templates.push({
+        id,
+        dir,
+        factoryExport,
+        label: id.replace(/-/g, ' ')
+      })
+    } catch {
+      /* skip dirs with unexpected factory shape */
+    }
+  }
+
+  const order = ['minimal-react', 'antd-less']
+  templates.sort((a, b) => {
+    const ia = order.indexOf(a.id)
+    const ib = order.indexOf(b.id)
+    if (ia === -1 && ib === -1) return a.id.localeCompare(b.id)
+    if (ia === -1) return 1
+    if (ib === -1) return -1
+    return ia - ib
+  })
+
+  return { root, templates }
+}
+
+function printMenu(templates) {
+  console.log('\nAvailable webview templates:\n')
+  templates.forEach((t, i) => {
+    console.log(`  ${i + 1}. ${t.id}  (${t.label})`)
+  })
+  console.log('')
+}
+
+function promptTemplate(templates) {
+  return new Promise((resolve, reject) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+    const ask = () => {
+      rl.question(`Select template [1–${templates.length}]: `, (answer) => {
+        const n = parseInt(String(answer).trim(), 10)
+        if (n >= 1 && n <= templates.length) {
+          rl.close()
+          resolve(templates[n - 1])
+        } else {
+          console.log('Invalid choice; try again.')
+          ask()
+        }
+      })
+    }
+    rl.on('SIGINT', () => {
+      rl.close()
+      reject(new Error('cancelled'))
+    })
+    ask()
+  })
+}
+
+function vendorCopy({ sourceDir, force }) {
+  fs.mkdirSync(path.dirname(destDir), { recursive: true })
+
+  if (fs.existsSync(destDir)) {
+    if (!force) {
+      console.log(`[vendor:template] skip copy (exists): ${destDir}\n  use --force to replace`)
+      return false
+    }
+    fs.rmSync(destDir, { recursive: true })
+  }
+  fs.cpSync(sourceDir, destDir, { recursive: true })
+  console.log(`[vendor:template] copied\n  from: ${sourceDir}\n  to:   ${destDir}`)
+  return true
+}
+
+/** Non-interactive default: package.json "webviewVendorTemplate" (template id), else first in sorted list. */
+function pickNonInteractiveDefault(templates) {
+  const pkgPath = path.join(demoRoot, 'package.json')
+  try {
+    const raw = fs.readFileSync(pkgPath, 'utf8')
+    const pkg = JSON.parse(raw)
+    const id = pkg.webviewVendorTemplate
+    if (typeof id === 'string' && id) {
+      const t = templates.find((x) => x.id === id)
+      if (t) return t
+      console.warn(
+        `[vendor:template] package.json webviewVendorTemplate "${id}" not in available templates; using first available`
+      )
+    }
+  } catch {
+    /* no package.json or invalid JSON */
+  }
+  return templates[0]
+}
+
+function writeWebpackEntry(templateId, factoryExport) {
+  const webpackOut = path.join(demoRoot, 'scaffold', 'webview.webpack.js')
+  const body = `/* Generated by scripts/vendor-minimal-react-template.cjs — template: ${templateId} */
+const path = require('path')
+const { ${factoryExport} } = require('./bundler/webpack.factory.js')
+
+const context = path.resolve(__dirname, '..')
+const templateRoot = path.resolve(__dirname, 'bundler')
+
+module.exports = ${factoryExport}({
+  context,
+  entry: path.resolve(context, 'src/webview/index.tsx'),
+  htmlTemplate: path.resolve(templateRoot, 'src/index.html'),
+  favicon: path.resolve(templateRoot, 'src/favicon.ico'),
+  babelConfig: path.resolve(context, '.babelrc')
+})
+`
+  fs.writeFileSync(webpackOut, body, 'utf8')
+  console.log(`[vendor:template] wrote ${webpackOut}`)
+}
+
+async function main() {
+  const { force, template: templateArg } = parseArgs()
+  const { root, templates } = discoverTemplates()
+
+  if (!root || templates.length === 0) {
+    console.error(
+      '[vendor:template] No templates found. Expected one of:\n' +
+        `  ${path.join(demoRoot, '..', '..', 'webview-templates')} (extension inside easy-vscode repo)\n` +
+        `  ${path.join(demoRoot, '..', 'easy-vscode', 'webview-templates')} (sibling monorepo layout)\n` +
+        'Or set EASY_VSCODE_ROOT to the easy-vscode repo root.'
+    )
+    process.exit(1)
+  }
+
+  let chosen
+  if (templateArg) {
+    chosen = templates.find((t) => t.id === templateArg)
+    if (!chosen) {
+      console.error(
+        `[vendor:template] Unknown template "${templateArg}". Available: ${templates.map((t) => t.id).join(', ')}`
+      )
+      process.exit(1)
+    }
+  } else if (process.stdin.isTTY && !process.env.CI) {
+    printMenu(templates)
+    try {
+      chosen = await promptTemplate(templates)
+    } catch (e) {
+      if (e.message === 'cancelled') {
+        console.log('\n[vendor:template] aborted.')
+        process.exit(130)
+      }
+      throw e
+    }
+  } else {
+    chosen = pickNonInteractiveDefault(templates)
+    console.log(`[vendor:template] non-interactive: using "${chosen.id}" (use --template <id> to pick another)`)
+  }
+
+  vendorCopy({ sourceDir: chosen.dir, force })
+  writeWebpackEntry(chosen.id, chosen.factoryExport)
+  console.log('[vendor:template] next: yarn ui-build && yarn compile')
+}
+
+main().catch((err) => {
+  console.error('[vendor:template]', err)
+  process.exit(1)
+})

@@ -1,5 +1,4 @@
 import {
-  Alert,
   Button,
   Checkbox,
   Collapse,
@@ -14,7 +13,7 @@ import {
   Tag,
   Tooltip
 } from 'antd'
-import { FolderOpenTwoTone, InfoCircleOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons'
+import { FolderOpenTwoTone, InfoCircleOutlined, SearchOutlined } from '@ant-design/icons'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BACKGROUND_COLOR_OPTIONS, DEFAULT_BACKGROUND_COLOR, DEFAULT_IMAGE_SIZE, MESSAGE_CMD } from '../../constants'
 import { callVscode } from '@easy_vscode/webview'
@@ -94,6 +93,7 @@ const PreviewImages: React.FC = () => {
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [includeFolders, setIncludeFolders] = useState<string[]>([])
   const [excludeFolders, setExcludeFolders] = useState<string[]>([])
+  const [showAnnouncement, setShowAnnouncement] = useState(true)
   const currentProjectPath = useRef('')
 
   const { run: onDebounceScroll } = useDebounceFn(
@@ -326,12 +326,15 @@ const PreviewImages: React.FC = () => {
   return (
     <ConfigProvider renderEmpty={customizeRenderEmpty}>
       <Spin spinning={loading}>
-        <Alert closable message={
-          <div>
-            New features: ① Individual project settings are now stored in local files. ② Search now has options to include or exclude specific folders. &nbsp;&nbsp;
-            <a href='https://github.com/ZhangJian1713/vscode-image-viewer/issues' target='_blank' rel="noreferrer">Report issues</a>
+        {showAnnouncement && (
+          <div style={{ marginBottom: 16, padding: '12px 16px', background: '#e6f7ff', border: '1px solid #91d5ff', borderRadius: 4 }}>
+            <span style={{ float: 'right', cursor: 'pointer' }} onClick={() => setShowAnnouncement(false)}>×</span>
+            <div>
+              New features: ① Individual project settings are now stored in local files. ② Search now has options to include or exclude specific folders. &nbsp;&nbsp;
+              <a href='https://github.com/ZhangJian1713/vscode-image-viewer/issues' target='_blank' rel="noreferrer">Report issues</a>
+            </div>
           </div>
-        } type="info" showIcon />
+        )}
         <StyledPreviewImages style={{ padding: '20px' }}>
           <StyleTopRows>
             <Input

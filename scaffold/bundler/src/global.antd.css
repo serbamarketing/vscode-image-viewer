@@ -1,0 +1,93 @@
+body {
+  background-color: #fff;
+  font-family: 'Roboto,PingFang SC', sans-serif;
+  font-size: 14px;
+  padding: 0;
+  margin: 0;
+}
+#root {
+  height: 100%;
+}
+
+.ant-drawer-wrapper-body .ant-drawer-header {
+  border-bottom: none;
+  padding: 16px 24px 8px;
+}
+.ant-drawer-wrapper-body .ant-drawer-footer {
+  border-top: none;
+  padding: 24px;
+}
+.ant-drawer-wrapper-body .ant-drawer-footer span {
+  font-weight: 500;
+}
+.ant-drawer-wrapper-body .ant-form-item-label > label {
+  font-size: 16px;
+}
+
+div
+  .ant-table-thead
+  > tr
+  > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not([colspan])::before {
+  background: none;
+}
+
+div .ant-menu-inline .ant-menu-item::after {
+  border-right: none;
+}
+.ant-menu-item {
+  border-left: 3px solid rgba(0, 0, 0, 0);
+}
+.ant-menu-item-selected {
+  border-left: 3px solid #2673dd;
+}
+
+.ant-menu-submenu .ant-menu-sub.ant-menu-inline {
+  background: #fff;
+}
+
+div .ant-tag {
+  line-height: 24px;
+}
+
+div .ant-notification {
+  z-index: 800;
+}
+
+div .ant-form-horizontal .ant-form-item-label > label {
+  margin-right: 12px;
+}
+
+div .ant-modal-confirm-body .ant-modal-confirm-title {
+  font-size: 20px;
+  font-weight: 500;
+}
+div .ant-modal-confirm .ant-modal-body {
+  padding: 24px;
+}
+div .ant-modal-close-x {
+  width: 64px;
+  height: 64px;
+  line-height: 64px;
+}
+
+div .ant-popover-inner-content {
+  padding: 24px;
+}
+div .ant-popover-title {
+  padding: 16px 24px 4px;
+  border-bottom: none;
+}
+
+div .ant-tooltip {
+  max-width: none;
+}
+
+.ant-modal-header {
+  border-bottom: none;
+}
+.ant-modal-footer {
+  border-top: none;
+}
+.ant-modal-body {
+  padding: 12px 24px;
+}
