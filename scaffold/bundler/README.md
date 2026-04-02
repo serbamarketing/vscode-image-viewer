@@ -1,49 +1,52 @@
 # antd-less webview template
 
-Use this when your webview uses **Ant Design + Less + React**.
+Use this template for webviews built with **Ant Design + Less + React**.
 
-## What lives here (frontend app layer)
+## What is included (frontend app layer)
 
 | Item | Role |
 |------|------|
-| `webpack.factory.js` | Full webpack setup (babel, less, svg, devServer). **Own and edit** in your project. |
+| `webpack.factory.js` | Full webpack setup (babel, less, svg, devServer). Adjust in your project as needed. |
 | `src/index.html` | Webview HTML shell with `$currentView$` / `$vscodeEnv$` placeholders. |
-| `src/global.antd.css` | Optional global Ant Design tweaks; copy to your `src/webview/antd-global.css`. |
-| `AntdWebviewShell.sample.tsx` | Root with `ConfigProvider`; copy into your extension, adjust imports. |
+| `src/global.antd.css` | Optional global Ant Design tweaks; copy into your `src/webview/antd-global.css`. |
+| `AntdWebviewShell.sample.tsx` | Root `ConfigProvider` shell sample. Copy into extension source and adjust imports. |
 
-## What stays in `@easy_vscode/webview` (runtime only)
+## What remains in `@easy_vscode/webview` (runtime-only)
 
 - `registerWebview(components, { Root?: ... })`
 - `callVscode`
-- Message typing used by `callVscode`
+- Message types used by `callVscode`
 
-No webpack, no Ant Design, no i18n inside the npm runtime surface.
+No webpack, Ant Design, or i18n build concerns are part of runtime surface.
 
 ## Monorepo wiring
 
-新项目：`scaffold/webview.webpack.js` + `scaffold/bundler/`（vendor）。仍使用 `easyVscodeConfig/` 的仓库见 `vscode-image-viewer`。
+Recommended new structure: `scaffold/webview.webpack.js` + vendored `scaffold/bundler/`.
+Legacy repos may still use `easyVscodeConfig/` (for example, older snapshots of `vscode-image-viewer`).
 
-## npm / standalone repo
+## npm / standalone repo usage
 
-Copy this entire folder into your extension repository and commit it. You can then swap React version, replace Less with Sass, or switch bundler without touching `@easy_vscode/webview`.
+Copy this folder into your extension repository and commit it.
+You can then change React version, replace Less with Sass, or switch bundler without changing `@easy_vscode/webview` runtime API.
 
-## No `package.json` here — install in your extension root
+## No `package.json` in this folder
 
-This folder is **not** an npm package. **`index.html` + `webpack.factory.js` do not pull in React or Ant Design**; those must be in **your extension** `package.json`.
+This directory is **not** an npm package.
+`index.html` + `webpack.factory.js` do not install React/Ant Design; those belong in extension root `package.json`.
 
-### `dependencies` (typical)
+### Typical `dependencies`
 
 - `react`, `react-dom`
-- `antd`, `@ant-design/icons` (versions you choose)
+- `antd`, `@ant-design/icons` (choose versions you need)
 - `@easy_vscode/webview`
 
-### `devDependencies` (typical — match factory rules)
+### Typical `devDependencies`
 
-Everything listed for **minimal-react**, plus:
+Everything from **minimal-react**, plus:
 
 - `less`, `less-loader`
 - `@svgr/webpack` (for `.svg` rule in factory)
 
-Optional: `babel-plugin-import` for older Ant Design tree-shaking patterns (Ant Design 5 often uses ES modules without it).
+Optional: `babel-plugin-import` for older Ant Design tree-shaking workflows.
 
 Reference: `vscode-image-viewer/package.json` and `easy-vscode/packages/demo/package.json`.
