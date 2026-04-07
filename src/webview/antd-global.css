@@ -153,6 +153,17 @@ div .ant-tooltip {
   max-width: none;
 }
 
+/* 下拉菜单：避免挂在 text-align:center 的触发节点上时继承居中；并统一左对齐 */
+.ant-dropdown .ant-menu-vertical .ant-menu-item,
+.ant-dropdown .ant-menu-vertical .ant-menu-submenu-title {
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.ant-dropdown .ant-menu-vertical .ant-menu-item .ant-menu-title-content {
+  text-align: left;
+}
+
 .ant-modal-header {
   border-bottom: none;
 }
@@ -161,4 +172,29 @@ div .ant-tooltip {
 }
 .ant-modal-body {
   padding: 12px 24px;
+}
+
+/* 图片预览顶部：文件名 + 序号（countRender 根节点） */
+.iv-image-preview-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: min(92vw, 720px);
+  text-align: center;
+  line-height: 1.35;
+}
+
+.iv-image-preview-filename {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+
+.iv-image-preview-counter {
+  font-size: 14px;
+  opacity: 0.95;
 }

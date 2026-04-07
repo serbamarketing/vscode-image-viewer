@@ -1,4 +1,4 @@
-import { IConfig } from "types";
+import { IConfig } from 'types'
 import { utils } from '@easy_vscode/core'
 import fs from 'fs'
 import json5 from 'json5'
@@ -13,7 +13,8 @@ const DEFAULT_CONFIG: IConfig = {
   size: 100,
   includeFolders: [],
   excludeFolders: [],
-  uiTheme: 'follow'
+  uiTheme: 'follow',
+  imageSort: 'nameAsc'
 }
 
 const PROJECTS_CONFIG_DIRECTORY = 'projectsConfig'

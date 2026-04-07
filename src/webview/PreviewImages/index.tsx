@@ -6,6 +6,7 @@ import {
   Empty,
   Image,
   Input,
+  Select,
   Skeleton,
   Slider,
   Space,
@@ -36,10 +37,10 @@ import {
 import ImageInfo from './ImageInfo'
 import { useDebounceFn, useScroll } from 'ahooks'
 import { BUILTIN_MESSAGE_CMD } from '@easy_vscode/core/lib/constants'
-import { IConfig } from 'types'
+import { IConfig, type ImageSortMode, type WebviewUiThemePreference } from 'types'
 import SettingsModal from './SettingsModal'
 import { useWebviewTheme } from '../WebviewThemeContext'
-import type { WebviewUiThemePreference } from 'types'
+import { IMAGE_SORT_OPTIONS, compareImagesForSort } from '../imageSort'
 
 declare const window: any;
 
@@ -78,6 +79,7 @@ export interface IImage {
   fullPath: string
   vscodePath: string
   size: number
+  mtimeMs?: number
   // extend properties
   fileName: string
   fileType: string
@@ -127,6 +129,7 @@ const PreviewImages: React.FC = () => {
   const [includeFolders, setIncludeFolders] = useState<string[]>([])
   const [excludeFolders, setExcludeFolders] = useState<string[]>([])
   const [showAnnouncement, setShowAnnouncement] = useState(true)
+  const [imageSort, setImageSort] = useState<ImageSortMode>('nameAsc')
   const currentProjectPath = useRef('')
 
   const { run: onDebounceScroll } = useDebounceFn(
@@ -287,15 +290,14 @@ const PreviewImages: React.FC = () => {
     return showImgs.length > THRESHOLD_ENABLE_LAZY_LOADING
   }, [showImgs])
 
-  const sortImageFn = (a: IImage, b: IImage) => {
-    if (clickFilePath && a.fullPath === clickFilePath) {
-      return -1
-    }
-    if (clickFilePath && b.fullPath === clickFilePath) {
-      return 1
-    }
-    return a.fileName < b.fileName ? -1 : 1
-  }
+  const sortImagesInPanel = useCallback(
+    (dirPath: string) => {
+      return showImgs
+        .filter((img) => img.dirPath === dirPath)
+        .sort((a, b) => compareImagesForSort(imageSort, clickFilePath, a, b))
+    },
+    [showImgs, imageSort, clickFilePath]
+  )
 
   const onAutoPreview = () => {
     setEverAutoPreview(true)
@@ -316,6 +318,7 @@ const PreviewImages: React.FC = () => {
       setIncludeFolders(data.includeFolders)
       setExcludeFolders(data.excludeFolders)
       setUiThemePreference(data.uiTheme ?? 'follow')
+      setImageSort(data.imageSort ?? 'nameAsc')
       configHydratedRef.current = true
     })
   }, [setUiThemePreference])
@@ -332,9 +335,10 @@ const PreviewImages: React.FC = () => {
         showImageTypes,
         keyword,
         activeKey,
+        imageSort
       }
     })
-  }, [showImageTypes, backgroundColor, size, activeKey, keyword])
+  }, [showImageTypes, backgroundColor, size, activeKey, keyword, imageSort])
 
   useEffect(() => {
     if (!configHydratedRef.current) {
@@ -480,6 +484,16 @@ const PreviewImages: React.FC = () => {
                 </Tooltip>
                 <Button onClick={() => setActiveKey([...allPaths])}>Expand All</Button>
                 <Button onClick={() => setActiveKey([])}>Collapse All</Button>
+                <Tooltip title='Applies inside each folder only; folder order is unchanged.'>
+                  <Select<ImageSortMode>
+                    aria-label='Sort images within folder'
+                    value={imageSort}
+                    onChange={setImageSort}
+                    options={IMAGE_SORT_OPTIONS}
+                    popupMatchSelectWidth={false}
+                    style={{ minWidth: 300 }}
+                  />
+                </Tooltip>
               </Space>
             </StyledBetweenWrapper>
           </StyleTopRows>
@@ -496,25 +510,43 @@ const PreviewImages: React.FC = () => {
             ) : (
               <StyledImgsContainer ref={ref}>
                 <Collapse activeKey={activeKey} onChange={handleChangeActiveKey}>
-                  {allPaths.map((path) => (
-                    <Collapse.Panel
-                      header={
-                        <span>
-                          {formatRelativeDirDisplay(path)}
-                          <StyledPicCount>({showImgs.filter((img) => img.dirPath === path).length})</StyledPicCount>
-                          <StyledFolderOpenTwoTone>
-                            <FolderOpenTwoTone twoToneColor='#f4d057' onClick={(e) => handleClickOpenFolder(e, path)} />
-                          </StyledFolderOpenTwoTone>
-                        </span>
-                      }
-                      key={path}
-                    >
-                      <StyleImageList>
-                        <Image.PreviewGroup>
-                          {showImgs
-                            .filter((img) => img.dirPath === path)
-                            .sort(sortImageFn)
-                            .map((img) => (
+                  {allPaths.map((path) => {
+                    const imgsInPanel = sortImagesInPanel(path)
+                    return (
+                      <Collapse.Panel
+                        header={
+                          <span>
+                            {formatRelativeDirDisplay(path)}
+                            <StyledPicCount>({imgsInPanel.length})</StyledPicCount>
+                            <StyledFolderOpenTwoTone>
+                              <FolderOpenTwoTone twoToneColor='#f4d057' onClick={(e) => handleClickOpenFolder(e, path)} />
+                            </StyledFolderOpenTwoTone>
+                          </span>
+                        }
+                        key={path}
+                      >
+                        <StyleImageList>
+                          <Image.PreviewGroup
+                            preview={{
+                              scaleStep: 3,
+                              countRender: (current, total) => {
+                                const name = imgsInPanel[current - 1]?.fileName ?? ''
+                                return (
+                                  <div className='iv-image-preview-progress'>
+                                    {name ? (
+                                      <span className='iv-image-preview-filename' title={name}>
+                                        {name}
+                                      </span>
+                                    ) : null}
+                                    <bdi className='iv-image-preview-counter'>
+                                      {current} / {total}
+                                    </bdi>
+                                  </div>
+                                )
+                              }
+                            }}
+                          >
+                            {imgsInPanel.map((img) => (
                               <StyleImage key={img.path}>
                                 <ImageLazyLoad
                                   isScrolling={isScrolling}
@@ -528,10 +560,11 @@ const PreviewImages: React.FC = () => {
                                 <ImageInfo size={size} img={img} onDeleteImage={onDeleteImage} />
                               </StyleImage>
                             ))}
-                        </Image.PreviewGroup>
-                      </StyleImageList>
-                    </Collapse.Panel>
-                  ))}
+                          </Image.PreviewGroup>
+                        </StyleImageList>
+                      </Collapse.Panel>
+                    )
+                  })}
                 </Collapse>
               </StyledImgsContainer>
             )}

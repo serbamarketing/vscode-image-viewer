@@ -82,7 +82,10 @@ const ImageInfo: React.FC<any> = ({ img, onDeleteImage, size }) => {
   }
   return (
     <StyleImageInfo>
-      <Dropdown menu={{ items: menuItems, onClick: handleMenuClick }}>
+      <Dropdown
+        menu={{ items: menuItems, onClick: handleMenuClick }}
+        getPopupContainer={() => document.body}
+      >
         <StyleImageName style={{ width: `${size}px` }}>{displayName}</StyleImageName>
       </Dropdown>
     </StyleImageInfo>

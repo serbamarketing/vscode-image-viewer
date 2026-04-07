@@ -14,6 +14,7 @@ interface IImage {
   path: string
   vscodePath: string
   size: number
+  mtimeMs: number
 }
 
 /**
@@ -64,14 +65,15 @@ function searchImgs(basePath: string, includeFolders: string[], excludeFolders: 
   const searchFolders = includeFolders.length > 0 ? includeFolders.map(folder => basePath + '/' + removeSlash(folder)) : [basePath]
   searchFolders.forEach((folder) => {
     dfs(folder, (filePath: string) => {
-      const size = fs.statSync(filePath)?.size
+      const st = fs.statSync(filePath)
       const relativePath = filePath.replace(basePath, '')
       // vscodePath e.g. https://file%2B.vscode-resource.vscode-cdn.net/Users/user_name/project_dir/src/favicon.ico
       const vscodePath = webview.asWebviewUri(Uri.file(filePath)).toString()
       const img = {
         path: relativePath,
         vscodePath,
-        size
+        size: st.size,
+        mtimeMs: st.mtimeMs
       }
       imgs.push(img)
     })
