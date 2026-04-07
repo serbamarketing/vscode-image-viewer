@@ -88,6 +88,7 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({ isScrolling, enableLazyL
   return (
     <Image
       id={img.fullPath}
+      alt={img.fileName}
       width={size}
       height={size}
       style={{ backgroundColor, objectFit: 'contain' }}
