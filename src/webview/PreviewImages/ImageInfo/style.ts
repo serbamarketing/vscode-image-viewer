@@ -18,7 +18,8 @@ export const StyleImageName = styled.div`
   text-align: center;
   line-height: 16px;
   font-size: 12px;
-  color: var(--vscode-foreground);
+  /* --iv-primary-fg matches forced light/dark; --vscode-foreground can stay “editor dark” when UI is forced light. */
+  color: var(--iv-primary-fg, var(--vscode-editor-foreground));
   word-break: break-word;
   display: -webkit-box;
   -webkit-line-clamp: 3;

@@ -60,6 +60,67 @@
 }
 
 /**
+ * Image list pane scrollbars: when UI is light, avoid OS / webview default “dark rail”.
+ */
+.webview-app-root[data-ui-theme='light'] .iv-image-list-scroll,
+.webview-app-root[data-ui-theme='follow'][data-effective-light='true'] .iv-image-list-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.35) rgba(0, 0, 0, 0.06);
+}
+
+.webview-app-root[data-ui-theme='light'] .iv-image-list-scroll::-webkit-scrollbar,
+.webview-app-root[data-ui-theme='follow'][data-effective-light='true'] .iv-image-list-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.webview-app-root[data-ui-theme='light'] .iv-image-list-scroll::-webkit-scrollbar-track,
+.webview-app-root[data-ui-theme='follow'][data-effective-light='true'] .iv-image-list-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 5px;
+}
+
+.webview-app-root[data-ui-theme='light'] .iv-image-list-scroll::-webkit-scrollbar-thumb,
+.webview-app-root[data-ui-theme='follow'][data-effective-light='true'] .iv-image-list-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 5px;
+}
+
+.webview-app-root[data-ui-theme='light'] .iv-image-list-scroll::-webkit-scrollbar-thumb:hover,
+.webview-app-root[data-ui-theme='follow'][data-effective-light='true'] .iv-image-list-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.webview-app-root[data-ui-theme='dark'] .iv-image-list-scroll,
+.webview-app-root[data-ui-theme='follow'][data-effective-light='false'] .iv-image-list-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.38) rgba(255, 255, 255, 0.08);
+}
+
+.webview-app-root[data-ui-theme='dark'] .iv-image-list-scroll::-webkit-scrollbar,
+.webview-app-root[data-ui-theme='follow'][data-effective-light='false'] .iv-image-list-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.webview-app-root[data-ui-theme='dark'] .iv-image-list-scroll::-webkit-scrollbar-track,
+.webview-app-root[data-ui-theme='follow'][data-effective-light='false'] .iv-image-list-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 5px;
+}
+
+.webview-app-root[data-ui-theme='dark'] .iv-image-list-scroll::-webkit-scrollbar-thumb,
+.webview-app-root[data-ui-theme='follow'][data-effective-light='false'] .iv-image-list-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.32);
+  border-radius: 5px;
+}
+
+.webview-app-root[data-ui-theme='dark'] .iv-image-list-scroll::-webkit-scrollbar-thumb:hover,
+.webview-app-root[data-ui-theme='follow'][data-effective-light='false'] .iv-image-list-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.48);
+}
+
+/**
  * Fill the VS Code webview panel height and suppress the outer (document) scrollbar.
  * Only the image list pane scrolls; toolbar + optional announcement sizes naturally.
  */

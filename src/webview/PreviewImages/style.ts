@@ -145,7 +145,8 @@ export const StyledPicCount = styled.span`
   margin: 0 0 0 12px;
 `
 
-export const StyledImgsContainer = styled.div`
+/** Scrollbar colors themed via `.iv-image-list-scroll` in `antd-global.css`. */
+export const StyledImgsContainer = styled.div.attrs({ className: 'iv-image-list-scroll' })`
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;

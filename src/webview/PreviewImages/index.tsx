@@ -74,6 +74,17 @@ function formatRelativeDirDisplay(path: string): string {
   return trimmed === '' ? WORKSPACE_ROOT_DISPLAY : trimmed
 }
 
+/** Tooltip for background swatches: specials in English; solid colors use stored hex (e.g. #ffffff). */
+function backgroundSwatchTooltip(option: string): string {
+  if (option === BACKGROUND_CHECKERBOARD) {
+    return 'Checkerboard'
+  }
+  if (option === BACKGROUND_TRANSPARENT) {
+    return 'Transparent'
+  }
+  return option
+}
+
 export interface IImage {
   // origin properties
   path: string
@@ -405,14 +416,33 @@ const PreviewImages: React.FC = () => {
 
   const columnSliderMarks = useMemo(() => buildColumnSliderMarks(), [])
 
-  const sortImagesInPanel = useCallback(
-    (dirPath: string) => {
-      return showImgs
-        .filter((img) => img.dirPath === dirPath)
-        .sort((a, b) => compareImagesForSort(imageSort, clickFilePath, a, b))
-    },
-    [showImgs, imageSort, clickFilePath]
-  )
+  /** One pass: group by dir + sort each list (avoids O(panels × N) filter/sort per render). */
+  const sortedImagesByDir = useMemo(() => {
+    const map = new Map<string, IImage[]>()
+    for (const img of showImgs) {
+      let list = map.get(img.dirPath)
+      if (!list) {
+        list = []
+        map.set(img.dirPath, list)
+      }
+      list.push(img)
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => compareImagesForSort(imageSort, clickFilePath, a, b))
+    }
+    return map
+  }, [showImgs, imageSort, clickFilePath])
+
+  /** One `setActiveKey` (no Spin overlay). rAF so the click frame stays light before the big commit. */
+  const handleExpandAllFolders = useCallback(() => {
+    const keys = [...allPaths]
+    if (keys.length === 0) {
+      return
+    }
+    requestAnimationFrame(() => {
+      setActiveKey(keys)
+    })
+  }, [allPaths])
 
   const onAutoPreview = useCallback(() => {
     setEverAutoPreview(true)
@@ -577,27 +607,21 @@ const PreviewImages: React.FC = () => {
           <StyleTopRows style={{ marginBottom: '6px' }}>
             <StyleRowTitle>Background:</StyleRowTitle>
             <span>
-              {BACKGROUND_COLOR_OPTIONS.map((color) => (
-                <StyleSquare
-                  key={color}
-                  title={
-                    color === BACKGROUND_CHECKERBOARD
-                      ? 'Checkerboard'
-                      : color === BACKGROUND_TRANSPARENT
-                        ? 'Transparent'
-                        : color
-                  }
-                  onClick={() => setBackgroundColor(color)}
-                  isSelected={backgroundColor === color}
-                  color={color}
-                />
+              {BACKGROUND_COLOR_OPTIONS.map((opt) => (
+                <Tooltip key={opt} title={backgroundSwatchTooltip(opt)} mouseEnterDelay={0.35}>
+                  <StyleSquare
+                    onClick={() => setBackgroundColor(opt)}
+                    isSelected={backgroundColor === opt}
+                    color={opt}
+                  />
+                </Tooltip>
               ))}
             </span>
           </StyleTopRows>
           {/* Columns → pixel size derived from panel width */}
           <StyleTopRows style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
             <StyleRowTitle>Columns:</StyleRowTitle>
-            <Tooltip title='Images per row (1–50). Pixel size follows panel width; labels are sparse on the right to reduce clutter.'>
+            <Tooltip title='Images per row (1–50). Pixel size follows panel width. Tick labels: every column through 10, then every 5 columns.'>
               <Slider
                 style={{ flex: 1 }}
                 min={COLUMN_SLIDER_MIN}
@@ -630,7 +654,7 @@ const PreviewImages: React.FC = () => {
                     style={{ fontSize: '16px', color: 'var(--iv-icon-muted, var(--vscode-descriptionForeground))' }}
                   />
                 </Tooltip>
-                <Button onClick={() => setActiveKey([...allPaths])}>Expand All</Button>
+                <Button onClick={handleExpandAllFolders}>Expand All</Button>
                 <Button onClick={() => setActiveKey([])}>Collapse All</Button>
                 <Tooltip title='Applies inside each folder only; folder order is unchanged.'>
                   <Select<ImageSortMode>
@@ -660,7 +684,8 @@ const PreviewImages: React.FC = () => {
                 <ThumbLoadBudgetProvider scrollRootRef={ref} ioGeneration={thumbIoGen}>
                 <Collapse activeKey={activeKey} onChange={handleChangeActiveKey}>
                   {allPaths.map((path) => {
-                    const imgsInPanel = sortImagesInPanel(path)
+                    const imgsInPanel = sortedImagesByDir.get(path) ?? []
+                    const panelOpen = activeKey.includes(path)
                     return (
                       <Collapse.Panel
                         header={
@@ -674,47 +699,49 @@ const PreviewImages: React.FC = () => {
                         }
                         key={path}
                       >
-                        <StyleImageList
-                          style={
-                            { ['--iv-grid-cols']: String(imageGridColumns) } as React.CSSProperties
-                          }
-                        >
-                          <Image.PreviewGroup
-                            preview={{
-                              scaleStep: 3,
-                              countRender: (current, total) => {
-                                const name = imgsInPanel[current - 1]?.fileName ?? ''
-                                return (
-                                  <div className='iv-image-preview-progress'>
-                                    {name ? (
-                                      <span className='iv-image-preview-filename' title={name}>
-                                        {name}
-                                      </span>
-                                    ) : null}
-                                    <bdi className='iv-image-preview-counter'>
-                                      {current} / {total}
-                                    </bdi>
-                                  </div>
-                                )
-                              }
-                            }}
+                        {panelOpen ? (
+                          <StyleImageList
+                            style={
+                              { ['--iv-grid-cols']: String(imageGridColumns) } as React.CSSProperties
+                            }
                           >
-                            {imgsInPanel.map((img, indexInFolder) => (
-                              <StyleImage key={img.path}>
-                                <ImageLazyLoad
-                                  enableLazyLoad={enableLazyLoad}
-                                  img={img}
-                                  backgroundColor={backgroundColor}
-                                  autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
-                                  onAutoPreview={onAutoPreview}
-                                  indexInFolder={indexInFolder}
-                                  imageGridColumns={imageGridColumns}
-                                />
-                                <ImageInfo img={img} onDeleteImage={onDeleteImage} />
-                              </StyleImage>
-                            ))}
-                          </Image.PreviewGroup>
-                        </StyleImageList>
+                            <Image.PreviewGroup
+                              preview={{
+                                scaleStep: 3,
+                                countRender: (current, total) => {
+                                  const name = imgsInPanel[current - 1]?.fileName ?? ''
+                                  return (
+                                    <div className='iv-image-preview-progress'>
+                                      {name ? (
+                                        <span className='iv-image-preview-filename' title={name}>
+                                          {name}
+                                        </span>
+                                      ) : null}
+                                      <bdi className='iv-image-preview-counter'>
+                                        {current} / {total}
+                                      </bdi>
+                                    </div>
+                                  )
+                                }
+                              }}
+                            >
+                              {imgsInPanel.map((img, indexInFolder) => (
+                                <StyleImage key={img.path}>
+                                  <ImageLazyLoad
+                                    enableLazyLoad={enableLazyLoad}
+                                    img={img}
+                                    backgroundColor={backgroundColor}
+                                    autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
+                                    onAutoPreview={onAutoPreview}
+                                    indexInFolder={indexInFolder}
+                                    imageGridColumns={imageGridColumns}
+                                  />
+                                  <ImageInfo img={img} onDeleteImage={onDeleteImage} />
+                                </StyleImage>
+                              ))}
+                            </Image.PreviewGroup>
+                          </StyleImageList>
+                        ) : null}
                       </Collapse.Panel>
                     )
                   })}

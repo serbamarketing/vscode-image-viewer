@@ -83,26 +83,38 @@ export function tileCellExtra(tileSize: number): number {
 }
 
 /**
- * Track layout: gap between column **k** and **k+1** (k = 1…49) is proportional to
- * `1 / k^p + β`. Then **g(1) > g(2) > … > g(49)** — 1–2 is the widest step, then each
- * adjacent pair gets strictly narrower (your “反比例 + 常数” family).
+ * Track layout (two pieces):
+ * - Columns **1–10**: even spacing on the left part of the track (fine control for few columns).
+ * - Columns **11–50**: shorter steps (denser), gaps ∝ `1/k^p + β` on the remainder of the track.
  */
 const COLUMN_GAP_POWER = 0.92
 const COLUMN_GAP_FLOOR = 0.11
+/** Share of [0,100] devoted to sliding across column counts 1–10 (uniform). */
+const COLUMN_TRACK_LOW_FRACTION = 0.46
+const COLUMN_EVEN_LOW_MAX = 10
 
 /** `positions[c]` = tick anchor on [0,100] for integer column `c` (1…50). `positions[1]=0`, `positions[50]=100`. */
 function buildColumnTrackPositions(): number[] {
   const n = IMAGE_GRID_COL_MAX
-  const gaps: number[] = []
-  for (let k = 1; k < n; k++) {
-    gaps.push(1 / Math.pow(k, COLUMN_GAP_POWER) + COLUMN_GAP_FLOOR)
-  }
-  const sum = gaps.reduce((a, b) => a + b, 0)
   const pos: number[] = new Array(n + 1)
   pos[0] = 0
   pos[1] = 0
-  for (let c = 1; c < n; c++) {
-    pos[c + 1] = pos[c] + (gaps[c - 1] / sum) * COLUMN_SLIDER_MAX
+
+  const lowSpan = COLUMN_SLIDER_MAX * COLUMN_TRACK_LOW_FRACTION
+  for (let c = 1; c <= COLUMN_EVEN_LOW_MAX; c++) {
+    pos[c] = ((c - 1) / (COLUMN_EVEN_LOW_MAX - 1)) * lowSpan
+  }
+
+  const tailSpan = COLUMN_SLIDER_MAX - lowSpan
+  const gaps: number[] = []
+  for (let k = COLUMN_EVEN_LOW_MAX; k < n; k++) {
+    gaps.push(1 / Math.pow(k, COLUMN_GAP_POWER) + COLUMN_GAP_FLOOR)
+  }
+  const sum = gaps.reduce((a, b) => a + b, 0)
+  let acc = lowSpan
+  for (let i = 0; i < gaps.length; i++) {
+    acc += (gaps[i] / sum) * tailSpan
+    pos[COLUMN_EVEN_LOW_MAX + 1 + i] = acc
   }
   pos[n] = COLUMN_SLIDER_MAX
   return pos
@@ -166,7 +178,8 @@ export function approxPersistedThumbSize(innerWidth: number, columns: number): n
   return Math.max(MIN_THUMB_PX, Math.min(MAX_THUMB_PX, Math.round(cellW - 2)))
 }
 
-const MARK_COLUMNS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 18, 21, 24, 27, 30, 35, 40, 45, 50] as const
+/** 1–10 every column (track is uniform there); then every 5 up to 50. */
+const MARK_COLUMNS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50] as const
 
 export function buildColumnSliderMarks(): NonNullable<SliderSingleProps['marks']> {
   const marks: NonNullable<SliderSingleProps['marks']> = {}
