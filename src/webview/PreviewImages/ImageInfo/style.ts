@@ -8,7 +8,7 @@ export const StyleImageInfo = styled.div`
 `
 
 export const StyleEllipsis = styled.div`
-  color: #2673dd;
+  color: var(--vscode-textLink-foreground);
 `
 
 export const StyleImageName = styled.div`
@@ -16,4 +16,5 @@ export const StyleImageName = styled.div`
   text-align: center;
   line-height: 16px;
   font-size: 12px;
+  color: var(--vscode-foreground);
 `

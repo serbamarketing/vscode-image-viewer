@@ -19,7 +19,7 @@ interface IImageLazyLoadProps {
 
 const StyleImagePlaceHolder = styled.div`
   display: inline-block;
-  border: solid 1px #ccc;
+  border: solid 1px var(--vscode-widget-border, #ccc);
 `
 
 const MIN_SIZE_SHOW_PREVIEW_INFO = 60

@@ -12,7 +12,7 @@ enum MenuKeys {
   DeleteFile
 }
 
-const THEME_COLOR = '#2673DD'
+const LINK_ICON_COLOR = 'var(--vscode-textLink-foreground)'
 
 const ImageInfo: React.FC<any> = ({ img, onDeleteImage, size }) => {
   const onClickCopyBase64 = () => {
@@ -46,22 +46,22 @@ const ImageInfo: React.FC<any> = ({ img, onDeleteImage, size }) => {
     {
       label: `Copy "${img.fileName}"`,
       key: MenuKeys.CopyFileName,
-      icon: <CopyOutlined style={{ color: THEME_COLOR }} />
+      icon: <CopyOutlined style={{ color: LINK_ICON_COLOR }} />
     },
     {
       label: `Copy "${img.path}"`,
       key: MenuKeys.CopyPath,
-      icon: <CopyOutlined style={{ color: THEME_COLOR }} />
+      icon: <CopyOutlined style={{ color: LINK_ICON_COLOR }} />
     },
     {
       label: `Copy Base64 string`,
       key: MenuKeys.CopyBase64,
-      icon: <CopyOutlined style={{ color: THEME_COLOR }} />
+      icon: <CopyOutlined style={{ color: LINK_ICON_COLOR }} />
     },
     {
       label: 'Delete File',
       key: MenuKeys.DeleteFile,
-      icon: <DeleteOutlined style={{ color: THEME_COLOR }} />
+      icon: <DeleteOutlined style={{ color: LINK_ICON_COLOR }} />
     }
   ]
   const limitLength = Math.round(size / 4)

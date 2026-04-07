@@ -1,5 +1,54 @@
+/**
+ * 次要/占位文字：随 data-ui-theme 与 VS Code 明/暗兼顾。
+ * - 强制浅/深：不用 VS Code token（否则常出现「浅色页面 + 深色 token」不可读）。
+ * - 跟随：浅色界面用 color-mix 略加深 description，避免个别主题过浅。
+ */
+.webview-app-root[data-ui-theme='light'] {
+  --iv-primary-fg: rgba(0, 0, 0, 0.88);
+  --iv-secondary-fg: rgba(0, 0, 0, 0.58);
+  --iv-placeholder-fg: rgba(0, 0, 0, 0.55);
+  --iv-icon-muted: rgba(0, 0, 0, 0.52);
+}
+
+.webview-app-root[data-ui-theme='dark'] {
+  --iv-primary-fg: rgba(255, 255, 255, 0.85);
+  --iv-secondary-fg: rgba(255, 255, 255, 0.68);
+  --iv-placeholder-fg: rgba(255, 255, 255, 0.48);
+  --iv-icon-muted: rgba(255, 255, 255, 0.58);
+}
+
+.webview-app-root[data-ui-theme='follow'][data-effective-light='true'] {
+  --iv-primary-fg: var(--vscode-editor-foreground);
+  --iv-secondary-fg: color-mix(
+    in srgb,
+    var(--vscode-descriptionForeground) 40%,
+    var(--vscode-foreground) 60%
+  );
+  --iv-placeholder-fg: color-mix(
+    in srgb,
+    var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground)) 35%,
+    var(--vscode-foreground) 65%
+  );
+  --iv-icon-muted: color-mix(
+    in srgb,
+    var(--vscode-descriptionForeground) 45%,
+    var(--vscode-foreground) 55%
+  );
+}
+
+.webview-app-root[data-ui-theme='follow'][data-effective-light='false'] {
+  --iv-primary-fg: var(--vscode-editor-foreground);
+  --iv-secondary-fg: var(--vscode-descriptionForeground);
+  --iv-placeholder-fg: var(
+    --vscode-input-placeholderForeground,
+    var(--vscode-descriptionForeground)
+  );
+  --iv-icon-muted: var(--vscode-descriptionForeground);
+}
+
 body {
-  background-color: #fff;
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
   font-family: 'Roboto,PingFang SC', sans-serif;
   font-size: 14px;
   padding: 0;
@@ -7,6 +56,8 @@ body {
 }
 #root {
   height: 100%;
+  background-color: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
 }
 
 .ant-drawer-wrapper-body .ant-drawer-header {
@@ -38,11 +89,11 @@ div .ant-menu-inline .ant-menu-item::after {
   border-left: 3px solid rgba(0, 0, 0, 0);
 }
 .ant-menu-item-selected {
-  border-left: 3px solid #2673dd;
+  border-left: 3px solid var(--vscode-focusBorder, #2673dd);
 }
 
 .ant-menu-submenu .ant-menu-sub.ant-menu-inline {
-  background: #fff;
+  background: var(--vscode-editor-background);
 }
 
 div .ant-tag {
@@ -64,10 +115,30 @@ div .ant-modal-confirm-body .ant-modal-confirm-title {
 div .ant-modal-confirm .ant-modal-body {
   padding: 24px;
 }
-div .ant-modal-close-x {
-  width: 64px;
-  height: 64px;
-  line-height: 64px;
+/* 关闭：不要用过大尺寸，否则在暗色下会像一块隐性色块；颜色跟 icon 走主题变量 */
+.ant-modal .ant-modal-close {
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+  background: transparent;
+}
+.ant-modal .ant-modal-close:hover {
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-toolbar-hoverBackground);
+}
+.ant-modal .ant-modal-close-x {
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ant-input::placeholder,
+textarea.ant-input::placeholder,
+.ant-input-outlined textarea.ant-input::placeholder,
+.ant-modal .ant-input::placeholder,
+.ant-modal textarea.ant-input::placeholder {
+  color: var(--iv-placeholder-fg, var(--vscode-input-placeholderForeground)) !important;
 }
 
 div .ant-popover-inner-content {

@@ -74,7 +74,7 @@ export const StyleSquare = styled.span<IStyleSquareProps>`
   height: 20px;
   height: ${(props) => props.isSelected ? '26px' : '20px'};
   width: ${(props) => props.isSelected ? '26px' : '20px'};
-  border: 1px solid #ddd;
+  border: 1px solid var(--vscode-widget-border, #ddd);
   background-color: ${(props) => props.color};
   position: relative;
   top: 5px;
@@ -88,14 +88,14 @@ export const StyleRowTitle = styled.span`
 `
 
 export const StyledPicCount = styled.span`
-  color: #8bbacc;
+  color: var(--iv-secondary-fg, var(--vscode-descriptionForeground));
   margin: 0 0 0 12px;
 `
 
 export const StyledImgsContainer = styled.div`
   height: calc(100vh - 228px);
   overflow-y: auto;
-  border: 1px solid #eee;
+  border: 1px solid var(--vscode-panel-border, #eee);
   border-left: none;
   border-right: none;
 `
@@ -108,18 +108,37 @@ export const StyledBetweenWrapper = styled.div`
   justify-content: space-between;
 `
 
-export const StyledSettingOutlined = styled(SettingOutlined)`
-  line-height: 32px;
-  font-size: 20px;
+const toolbarIconSlot = `
   position: absolute;
-  right: 26px;
-  top: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  color: inherit;
+  opacity: 0.9;
+  box-sizing: border-box;
+`
+
+export const StyledSettingOutlined = styled(SettingOutlined)`
+  ${toolbarIconSlot}
+  right: 56px;
+  font-size: 20px;
+`
+
+export const StyledThemeToggle = styled.span`
+  ${toolbarIconSlot}
+  right: 28px;
+  font-size: 20px;
+  cursor: pointer;
 `
 
 export const StyledReloadOutlined = styled(ReloadOutlined)`
-  line-height: 32px;
-  color: #2678dd;
-  position: absolute;
+  ${toolbarIconSlot}
   right: 0;
-  top: 0;
+  /* 比其余大 0.5px，略增笔画感但不抢眼 */
+  font-size: 20.5px;
 `

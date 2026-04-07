@@ -157,8 +157,8 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.5.0",
-    "@easy_vscode/core": "^1.7.3",
-    "@easy_vscode/webview": "^2.1.0",
+    "@easy_vscode/core": "file:../easy-vscode/packages/core",
+    "@easy_vscode/webview": "file:../easy-vscode/packages/webview",
     "ahooks": "^3.7.5",
     "antd": "^5.22.0",
     "axios": "^0.24.0",

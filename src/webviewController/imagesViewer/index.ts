@@ -1,5 +1,5 @@
-import { exec } from 'child_process'
-import { ViewColumn, Webview } from 'vscode'
+import * as path from 'path'
+import { Uri, ViewColumn, Webview, env } from 'vscode'
 import { utils, webviewUtils } from '@easy_vscode/core'
 import { IWebview, IWebviewProps, IMessage } from '@easy_vscode/core/lib/types'
 import { DIST_WEBVIEW_INDEX_HTML, EXTENSION_COMMANDS, MESSAGE_CMD, WEBVIEW_NAMES } from '../../constants'
@@ -51,7 +51,9 @@ const messageHandlers = new Map([
   [
     MESSAGE_CMD.OPEN_IMAGE_DIRECTORY,
     (message: IMessage) => {
-      exec(`open ${getProjectPath()}/${message.data.path}`)
+      const rel = String(message.data.path ?? '').replace(/^[/\\]+/, '')
+      const abs = path.join(getProjectPath(), rel)
+      void env.openExternal(Uri.file(abs))
     }
   ],
   [

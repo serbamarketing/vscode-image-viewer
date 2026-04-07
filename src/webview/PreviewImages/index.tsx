@@ -13,7 +13,7 @@ import {
   Tag,
   Tooltip
 } from 'antd'
-import { FolderOpenTwoTone, InfoCircleOutlined, SearchOutlined } from '@ant-design/icons'
+import { BgColorsOutlined, FolderOpenTwoTone, InfoCircleOutlined, MoonOutlined, SearchOutlined, SunOutlined } from '@ant-design/icons'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BACKGROUND_COLOR_OPTIONS, DEFAULT_BACKGROUND_COLOR, DEFAULT_IMAGE_SIZE, MESSAGE_CMD } from '../../constants'
 import { callVscode } from '@easy_vscode/webview'
@@ -26,6 +26,7 @@ import {
   StyledPreviewImages,
   StyledReloadOutlined,
   StyledSettingOutlined,
+  StyledThemeToggle,
   StyleImage,
   StyleImageList,
   StyleRowTitle,
@@ -37,6 +38,8 @@ import { useDebounceFn, useScroll } from 'ahooks'
 import { BUILTIN_MESSAGE_CMD } from '@easy_vscode/core/lib/constants'
 import { IConfig } from 'types'
 import SettingsModal from './SettingsModal'
+import { useWebviewTheme } from '../WebviewThemeContext'
+import type { WebviewUiThemePreference } from 'types'
 
 declare const window: any;
 
@@ -61,6 +64,14 @@ const THRESHOLD_ALL_COLLAPSED = 1200
 const THRESHOLD_ENABLE_LAZY_LOADING = 150
 const THRESHOLD_DELAY_CHANGE_SIZE = 200
 
+const WORKSPACE_ROOT_DISPLAY = '(workspace root)'
+
+/** UI label for project-relative dir; raw `path` keys (e.g. `/`) unchanged for logic. */
+function formatRelativeDirDisplay(path: string): string {
+  const trimmed = path.replace(/^\/|\/$/g, '')
+  return trimmed === '' ? WORKSPACE_ROOT_DISPLAY : trimmed
+}
+
 export interface IImage {
   // origin properties
   path: string
@@ -73,7 +84,29 @@ export interface IImage {
   dirPath: string
 }
 
+const themeToggleIcon = (p: WebviewUiThemePreference) => {
+  if (p === 'follow') {
+    return <BgColorsOutlined />
+  }
+  if (p === 'light') {
+    return <SunOutlined />
+  }
+  return <MoonOutlined />
+}
+
+const themeToggleTitle = (p: WebviewUiThemePreference) => {
+  if (p === 'follow') {
+    return 'Theme: follow VS Code (click to fix light)'
+  }
+  if (p === 'light') {
+    return 'Theme: light (click for dark)'
+  }
+  return 'Theme: dark (click to follow VS Code)'
+}
+
 const PreviewImages: React.FC = () => {
+  const { preference: uiThemePreference, setPreference: setUiThemePreference, cyclePreference } = useWebviewTheme()
+  const configHydratedRef = useRef(false)
   const [imgs, setImgs] = useState<IImage[]>([])
   const [allImageTypes, setAllImageTypes] = useState<string[]>([])
   const [showImageTypes, setShowImageTypes] = useState<string[]>([])
@@ -282,8 +315,10 @@ const PreviewImages: React.FC = () => {
       setActiveKey(data.activeKey)
       setIncludeFolders(data.includeFolders)
       setExcludeFolders(data.excludeFolders)
+      setUiThemePreference(data.uiTheme ?? 'follow')
+      configHydratedRef.current = true
     })
-  }, [])
+  }, [setUiThemePreference])
 
   /**
    * save to local config file
@@ -300,6 +335,21 @@ const PreviewImages: React.FC = () => {
       }
     })
   }, [showImageTypes, backgroundColor, size, activeKey, keyword])
+
+  useEffect(() => {
+    if (!configHydratedRef.current) {
+      return
+    }
+    callVscode({
+      cmd: MESSAGE_CMD.SAVE_CONFIG,
+      data: { uiTheme: uiThemePreference }
+    })
+  }, [uiThemePreference])
+
+  const handleCycleUiTheme = useCallback(() => {
+    configHydratedRef.current = true
+    cyclePreference()
+  }, [cyclePreference])
 
   /**
    * save to local config file and refresh images
@@ -327,26 +377,44 @@ const PreviewImages: React.FC = () => {
     <ConfigProvider renderEmpty={customizeRenderEmpty}>
       <Spin spinning={loading}>
         {showAnnouncement && (
-          <div style={{ marginBottom: 16, padding: '12px 16px', background: '#e6f7ff', border: '1px solid #91d5ff', borderRadius: 4 }}>
+          <div
+            style={{
+              marginBottom: 8,
+              padding: '12px 16px',
+              background: 'var(--vscode-inputValidation-infoBackground)',
+              border: '1px solid var(--vscode-inputValidation-infoBorder)',
+              borderRadius: 4,
+              color: 'var(--vscode-inputValidation-infoForeground)'
+            }}
+          >
             <span style={{ float: 'right', cursor: 'pointer' }} onClick={() => setShowAnnouncement(false)}>×</span>
             <div>
               New features: ① Individual project settings are now stored in local files. ② Search now has options to include or exclude specific folders. &nbsp;&nbsp;
-              <a href='https://github.com/ZhangJian1713/vscode-image-viewer/issues' target='_blank' rel="noreferrer">Report issues</a>
+              <a href='https://github.com/ZhangJian1713/vscode-image-viewer/issues' target='_blank' rel="noreferrer" style={{ color: 'var(--vscode-textLink-foreground)' }}>Report issues</a>
             </div>
           </div>
         )}
-        <StyledPreviewImages style={{ padding: '20px' }}>
+        <StyledPreviewImages
+          style={{
+            padding: showAnnouncement ? '10px 20px 20px 20px' : '20px'
+          }}
+        >
           <StyleTopRows>
             <Input
               addonBefore={<SearchOutlined />}
               allowClear
               size='middle'
               placeholder='image path/name'
-              style={{ width: 'calc(100% - 60px)', marginRight: '8px' }}
+              style={{ width: 'calc(100% - 92px)', marginRight: '8px' }}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
             />
             <StyledSettingOutlined onClick={handleClickSettings} />
+            <Tooltip title={themeToggleTitle(uiThemePreference)}>
+              <StyledThemeToggle onClick={handleCycleUiTheme} role='button' aria-label='Toggle UI theme'>
+                {themeToggleIcon(uiThemePreference)}
+              </StyledThemeToggle>
+            </Tooltip>
             <StyledReloadOutlined onClick={refreshImgs} />
           </StyleTopRows>
           {/* Type */}
@@ -396,14 +464,19 @@ const PreviewImages: React.FC = () => {
           <StyleTopRows>
             <StyledBetweenWrapper>
               <Space>
-                <span style={{ color: '#bbb' }}>
-                  Search result: <span style={{ color: '#333' }}>{showImgs.length}</span>
+                <span style={{ color: 'var(--iv-secondary-fg, var(--vscode-descriptionForeground))' }}>
+                  Search result:{' '}
+                  <span style={{ color: 'var(--iv-primary-fg, var(--vscode-foreground))', fontWeight: 600 }}>
+                    {showImgs.length}
+                  </span>
                 </span>
                 <Tooltip
                   placement='right'
                   title={`When there are more than ${THRESHOLD_ALL_COLLAPSED} images(after being filtered) being displayed, all directories are collapsed by default.`}
                 >
-                  <InfoCircleOutlined style={{ fontSize: '16px', color: '#ccc' }} />
+                  <InfoCircleOutlined
+                    style={{ fontSize: '16px', color: 'var(--iv-icon-muted, var(--vscode-descriptionForeground))' }}
+                  />
                 </Tooltip>
                 <Button onClick={() => setActiveKey([...allPaths])}>Expand All</Button>
                 <Button onClick={() => setActiveKey([])}>Collapse All</Button>
@@ -412,7 +485,9 @@ const PreviewImages: React.FC = () => {
           </StyleTopRows>
           {relativeDir && (
             <StyleTopRows>
-              <Tag closable onClose={() => setRelativeDir('')}>Search in: {relativeDir}</Tag>
+              <Tag closable onClose={() => setRelativeDir('')}>
+                Search in: {formatRelativeDirDisplay(relativeDir)}
+              </Tag>
             </StyleTopRows>
           )}
           <div>
@@ -425,7 +500,7 @@ const PreviewImages: React.FC = () => {
                     <Collapse.Panel
                       header={
                         <span>
-                          {path.replace(/^\/|\/$/g, '')}
+                          {formatRelativeDirDisplay(path)}
                           <StyledPicCount>({showImgs.filter((img) => img.dirPath === path).length})</StyledPicCount>
                           <StyledFolderOpenTwoTone>
                             <FolderOpenTwoTone twoToneColor='#f4d057' onClick={(e) => handleClickOpenFolder(e, path)} />
