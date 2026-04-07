@@ -15,10 +15,17 @@ import {
   Tooltip
 } from 'antd'
 import { BgColorsOutlined, FolderOpenTwoTone, InfoCircleOutlined, MoonOutlined, SearchOutlined, SunOutlined } from '@ant-design/icons'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BACKGROUND_COLOR_OPTIONS, DEFAULT_BACKGROUND_COLOR, DEFAULT_IMAGE_SIZE, MESSAGE_CMD } from '../../constants'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  BACKGROUND_CHECKERBOARD,
+  BACKGROUND_COLOR_OPTIONS,
+  BACKGROUND_TRANSPARENT,
+  DEFAULT_BACKGROUND_COLOR,
+  MESSAGE_CMD
+} from '../../constants'
 import { callVscode } from '@easy_vscode/webview'
 import ImageLazyLoad from './ImageLazyLoad'
+import { ThumbLoadBudgetProvider } from './thumbLoadBudget'
 import {
   StyledBetweenWrapper,
   StyledFolderOpenTwoTone,
@@ -30,36 +37,30 @@ import {
   StyledThemeToggle,
   StyleImage,
   StyleImageList,
+  StyleMainScrollSlot,
   StyleRowTitle,
   StyleSquare,
   StyleTopRows
 } from './style'
 import ImageInfo from './ImageInfo'
-import { useDebounceFn, useScroll } from 'ahooks'
 import { BUILTIN_MESSAGE_CMD } from '@easy_vscode/core/lib/constants'
 import { IConfig, type ImageSortMode, type WebviewUiThemePreference } from 'types'
 import SettingsModal from './SettingsModal'
 import { useWebviewTheme } from '../WebviewThemeContext'
+import {
+  COLUMN_SLIDER_MAX,
+  COLUMN_SLIDER_MIN,
+  buildColumnSliderMarks,
+  columnsFromApproxThumbWidth,
+  columnsFromSliderPos,
+  DEFAULT_COLUMN_LAYOUT_GUESS_PX,
+  IMAGE_GRID_PAD_X,
+  IMAGE_TILE_GAP,
+  approxPersistedThumbSize,
+  imagesPerRow,
+  sliderPosFromColumns
+} from '../imageGridColumns'
 import { IMAGE_SORT_OPTIONS, compareImagesForSort } from '../imageSort'
-
-declare const window: any;
-
-const completeImgs = (imgs, projectPath) => {
-  return imgs.map((img) => {
-    const filePath = img.path
-    const dirPath = filePath.substring(0, filePath.lastIndexOf('/') + 1)
-    const fileName = filePath.substring(filePath.lastIndexOf('/') + 1)
-    const fileType = filePath.substring(filePath.lastIndexOf('.') + 1)
-    const newImg = {
-      ...img,
-      fullPath: projectPath + img.path,
-      dirPath,
-      fileName,
-      fileType
-    }
-    return newImg
-  })
-}
 
 const THRESHOLD_ALL_COLLAPSED = 1200
 const THRESHOLD_ENABLE_LAZY_LOADING = 150
@@ -84,6 +85,26 @@ export interface IImage {
   fileName: string
   fileType: string
   dirPath: string
+}
+
+/** Host payload before paths and names are derived. */
+type RawWorkspaceImage = Pick<IImage, 'path' | 'vscodePath' | 'size'> & { mtimeMs?: number }
+
+const completeImgs = (imgs: RawWorkspaceImage[], projectPath: string): IImage[] => {
+  return imgs.map((img) => {
+    const filePath = img.path
+    const dirPath = filePath.substring(0, filePath.lastIndexOf('/') + 1)
+    const fileName = filePath.substring(filePath.lastIndexOf('/') + 1)
+    const fileType = filePath.substring(filePath.lastIndexOf('.') + 1)
+    const newImg: IImage = {
+      ...img,
+      fullPath: projectPath + img.path,
+      dirPath,
+      fileName,
+      fileType
+    }
+    return newImg
+  })
 }
 
 const themeToggleIcon = (p: WebviewUiThemePreference) => {
@@ -119,10 +140,19 @@ const PreviewImages: React.FC = () => {
   const [keyword, setKeyword] = useState<string>('')
   const [beforeFetch, setBeforeFetch] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [size, setSize] = useState<number>(DEFAULT_IMAGE_SIZE)
-  const [isScrolling, setIsScrolling] = useState(false)
+  /** Raw 0–100 slider value; drives the handle (never round-trip through column count only). */
+  const [columnSliderPos, setColumnSliderPos] = useState<number>(() =>
+    sliderPosFromColumns(columnsFromApproxThumbWidth(DEFAULT_COLUMN_LAYOUT_GUESS_PX))
+  )
+  /** Drives grid `size`; when image count is high, updates only on release to limit reflow. */
+  const [layoutSliderPos, setLayoutSliderPos] = useState<number>(() =>
+    sliderPosFromColumns(columnsFromApproxThumbWidth(DEFAULT_COLUMN_LAYOUT_GUESS_PX))
+  )
   const [relativeDir, setRelativeDir] = useState<string>('')
-  const initClickFilePath = window?.commandArgs?.[0]?.path || '';
+  const initClickFilePath =
+    (typeof window !== 'undefined' &&
+      (window as Window & { commandArgs?: { path?: string }[] }).commandArgs?.[0]?.path) ||
+    ''
   const [clickFilePath, setClickFilePath] = useState<string>(initClickFilePath)
   const [everAutoPreview, setEverAutoPreview] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
@@ -130,25 +160,63 @@ const PreviewImages: React.FC = () => {
   const [excludeFolders, setExcludeFolders] = useState<string[]>([])
   const [showAnnouncement, setShowAnnouncement] = useState(true)
   const [imageSort, setImageSort] = useState<ImageSortMode>('nameAsc')
+  const [gridInnerWidth, setGridInnerWidth] = useState(0)
+  const fallbackLayoutWidthRef = useRef(DEFAULT_COLUMN_LAYOUT_GUESS_PX)
+  const gridInnerWidthRef = useRef(0)
+  const pendingLegacySizeRef = useRef<number | null>(null)
+  /** True when config has neither `imageGridColumns` nor legacy `size`; apply once real width known. */
+  const needWidthBasedColumnsRef = useRef(false)
   const currentProjectPath = useRef('')
 
-  const { run: onDebounceScroll } = useDebounceFn(
-    () => {
-      setIsScrolling(false)
-    },
-    {
-      wait: 300
-    }
-  )
-  const ref = useRef(null)
-  const scroll = useScroll(ref)
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [thumbIoGen, setThumbIoGen] = useState(0)
 
-  useEffect(() => {
-    if (!isScrolling) {
-      setIsScrolling(true)
+  const setScrollContainerRef = useCallback((el: HTMLDivElement | null) => {
+    ref.current = el
+    if (el) {
+      setThumbIoGen((g) => g + 1)
     }
-    onDebounceScroll(scroll)
-  }, [scroll])
+  }, [])
+
+  useLayoutEffect(() => {
+    if (allPaths.length === 0) {
+      setGridInnerWidth(0)
+      return
+    }
+    let cancelled = false
+    let ro: ResizeObserver | null = null
+    let raf = 0
+    const attach = (el: HTMLElement) => {
+      const read = () => {
+        if (cancelled) {
+          return
+        }
+        const w = el.clientWidth - IMAGE_GRID_PAD_X
+        setGridInnerWidth(Math.max(0, w))
+      }
+      read()
+      ro = new ResizeObserver(read)
+      ro.observe(el)
+    }
+    const el = ref.current as HTMLElement | null
+    if (el) {
+      attach(el)
+    } else {
+      raf = requestAnimationFrame(() => {
+        const el2 = ref.current as HTMLElement | null
+        if (el2 && !cancelled) {
+          attach(el2)
+        }
+      })
+    }
+    return () => {
+      cancelled = true
+      if (raf) {
+        cancelAnimationFrame(raf)
+      }
+      ro?.disconnect()
+    }
+  }, [allPaths.length])
 
   /**
    * get file directory of path
@@ -159,7 +227,7 @@ const PreviewImages: React.FC = () => {
 
   const refreshImgs = useCallback(() => {
     setLoading(true)
-    callVscode({ cmd: MESSAGE_CMD.GET_ALL_IMGS }, ({ imgs, projectPath }: { imgs: IImage[], projectPath: string }) => {
+    callVscode({ cmd: MESSAGE_CMD.GET_ALL_IMGS }, ({ imgs, projectPath }: { imgs: RawWorkspaceImage[]; projectPath: string }) => {
       currentProjectPath.current = projectPath
       if (clickFilePath) {
         const fileRelativePath = clickFilePath.replace(currentProjectPath.current, '')
@@ -205,7 +273,7 @@ const PreviewImages: React.FC = () => {
     }
   }, [onRevealWebview])
 
-  const updateImgs = (newImgs) => {
+  const updateImgs = (newImgs: RawWorkspaceImage[]) => {
     const imgs = completeImgs(newImgs, currentProjectPath.current)
     setImgs(imgs)
     let allFileTypes: string[] = imgs.map((img) => img.fileType)
@@ -230,13 +298,9 @@ const PreviewImages: React.FC = () => {
     setActiveKey(isVeryMany ? [] : [...arr])
   }, [imgs, keyword, showImageTypes, relativeDir])
 
-  const onDeleteImage = (filePath) => {
-    const index = imgs.findIndex((img) => img.fullPath === filePath)
-    if (index > -1) {
-      imgs.splice(index, 1)
-      setImgs([...imgs])
-    }
-  }
+  const onDeleteImage = useCallback((filePath: string) => {
+    setImgs((prev) => prev.filter((img) => img.fullPath !== filePath))
+  }, [])
 
   const handleClickOpenFolder = (e, path: string) => {
     e.stopPropagation()
@@ -247,13 +311,15 @@ const PreviewImages: React.FC = () => {
   }
 
   const typeOptions = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const img of imgs) {
+      counts.set(img.fileType, (counts.get(img.fileType) ?? 0) + 1)
+    }
     return allImageTypes.map((type) => ({
       label: (
         <span>
           {type}
-          <StyledPicCount style={{ marginLeft: '4px' }}>
-            ({imgs.filter((img) => img.fileType === type).length})
-          </StyledPicCount>
+          <StyledPicCount style={{ marginLeft: '4px' }}>({counts.get(type) ?? 0})</StyledPicCount>
         </span>
       ),
       value: type
@@ -275,20 +341,69 @@ const PreviewImages: React.FC = () => {
     )
   }
 
-  const handlerChangeImageSize = (value) => {
+  const layoutWidthForSizing = gridInnerWidth > 0 ? gridInnerWidth : fallbackLayoutWidthRef.current
+  const imageGridColumns = useMemo(
+    () =>
+      columnsFromSliderPos(
+        imgs.length >= THRESHOLD_DELAY_CHANGE_SIZE ? layoutSliderPos : columnSliderPos
+      ),
+    [imgs.length, layoutSliderPos, columnSliderPos]
+  )
+  /** Legacy config `size` only; layout is CSS grid × `imageGridColumns`. */
+  const size = useMemo(
+    () => approxPersistedThumbSize(layoutWidthForSizing, imageGridColumns),
+    [layoutWidthForSizing, imageGridColumns]
+  )
+
+  useEffect(() => {
+    if (gridInnerWidth > 0) {
+      fallbackLayoutWidthRef.current = gridInnerWidth
+    }
+    gridInnerWidthRef.current = gridInnerWidth
+  }, [gridInnerWidth])
+
+  useEffect(() => {
+    if (gridInnerWidth <= 0) {
+      return
+    }
+
+    const legacy = pendingLegacySizeRef.current
+    if (legacy !== null) {
+      const cols = imagesPerRow(gridInnerWidth, legacy, IMAGE_TILE_GAP, 0)
+      const snapped = sliderPosFromColumns(Math.min(50, Math.max(1, cols)))
+      setColumnSliderPos(snapped)
+      setLayoutSliderPos(snapped)
+      pendingLegacySizeRef.current = null
+      needWidthBasedColumnsRef.current = false
+      return
+    }
+
+    if (needWidthBasedColumnsRef.current) {
+      const c = columnsFromApproxThumbWidth(gridInnerWidth)
+      const snapped = sliderPosFromColumns(c)
+      setColumnSliderPos(snapped)
+      setLayoutSliderPos(snapped)
+      needWidthBasedColumnsRef.current = false
+    }
+  }, [gridInnerWidth])
+
+  const handlerChangeGridColumns = (pos: number) => {
+    setColumnSliderPos(pos)
     if (imgs.length < THRESHOLD_DELAY_CHANGE_SIZE) {
-      setSize(value)
+      setLayoutSliderPos(pos)
     }
   }
-  const handlerAfterChangeImageSize = (value) => {
-    if (imgs.length >= THRESHOLD_DELAY_CHANGE_SIZE) {
-      setSize(value)
-    }
+  const handlerAfterChangeGridColumns = (pos: number) => {
+    const snapped = sliderPosFromColumns(columnsFromSliderPos(pos))
+    setColumnSliderPos(snapped)
+    setLayoutSliderPos(snapped)
   }
 
   const enableLazyLoad = useMemo(() => {
     return showImgs.length > THRESHOLD_ENABLE_LAZY_LOADING
   }, [showImgs])
+
+  const columnSliderMarks = useMemo(() => buildColumnSliderMarks(), [])
 
   const sortImagesInPanel = useCallback(
     (dirPath: string) => {
@@ -299,9 +414,9 @@ const PreviewImages: React.FC = () => {
     [showImgs, imageSort, clickFilePath]
   )
 
-  const onAutoPreview = () => {
+  const onAutoPreview = useCallback(() => {
     setEverAutoPreview(true)
-  }
+  }, [])
 
   /**
    * save to local config file
@@ -310,8 +425,25 @@ const PreviewImages: React.FC = () => {
     callVscode({
       cmd: MESSAGE_CMD.GET_CONFIG,
     }, (data: IConfig) => {
-      setBackgroundColor(data.backgroundColor)
-      setSize(data.size)
+      setBackgroundColor(data.backgroundColor ?? DEFAULT_BACKGROUND_COLOR)
+      const igc = data.imageGridColumns
+      if (typeof igc === 'number' && igc >= 1 && igc <= 50) {
+        const snapped = sliderPosFromColumns(Math.round(igc))
+        setColumnSliderPos(snapped)
+        setLayoutSliderPos(snapped)
+        pendingLegacySizeRef.current = null
+        needWidthBasedColumnsRef.current = false
+      } else {
+        pendingLegacySizeRef.current = typeof data.size === 'number' ? data.size : null
+        needWidthBasedColumnsRef.current = pendingLegacySizeRef.current === null
+      }
+
+      if (needWidthBasedColumnsRef.current && gridInnerWidthRef.current > 0) {
+        const snapped = sliderPosFromColumns(columnsFromApproxThumbWidth(gridInnerWidthRef.current))
+        setColumnSliderPos(snapped)
+        setLayoutSliderPos(snapped)
+        needWidthBasedColumnsRef.current = false
+      }
       setShowImageTypes(data.showImageTypes)
       setKeyword(data.keyword)
       setActiveKey(data.activeKey)
@@ -332,13 +464,14 @@ const PreviewImages: React.FC = () => {
       data: {
         backgroundColor,
         size,
+        imageGridColumns,
         showImageTypes,
         keyword,
         activeKey,
         imageSort
       }
     })
-  }, [showImageTypes, backgroundColor, size, activeKey, keyword, imageSort])
+  }, [showImageTypes, backgroundColor, size, imageGridColumns, activeKey, keyword, imageSort])
 
   useEffect(() => {
     if (!configHydratedRef.current) {
@@ -379,9 +512,12 @@ const PreviewImages: React.FC = () => {
 
   return (
     <ConfigProvider renderEmpty={customizeRenderEmpty}>
+      <>
+      <div className='iv-preview-root'>
       <Spin spinning={loading}>
         {showAnnouncement && (
           <div
+            className='iv-preview-announcement'
             style={{
               marginBottom: 8,
               padding: '12px 16px',
@@ -444,25 +580,37 @@ const PreviewImages: React.FC = () => {
               {BACKGROUND_COLOR_OPTIONS.map((color) => (
                 <StyleSquare
                   key={color}
+                  title={
+                    color === BACKGROUND_CHECKERBOARD
+                      ? 'Checkerboard'
+                      : color === BACKGROUND_TRANSPARENT
+                        ? 'Transparent'
+                        : color
+                  }
                   onClick={() => setBackgroundColor(color)}
                   isSelected={backgroundColor === color}
                   color={color}
-                ></StyleSquare>
+                />
               ))}
             </span>
           </StyleTopRows>
-          {/* Size */}
+          {/* Columns → pixel size derived from panel width */}
           <StyleTopRows style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-            <StyleRowTitle>Size:</StyleRowTitle>
-            <Slider
-              style={{ flex: 1 }}
-              min={10}
-              max={600}
-              step={5}
-              defaultValue={size}
-              onChange={handlerChangeImageSize}
-              onAfterChange={handlerAfterChangeImageSize}
-            />
+            <StyleRowTitle>Columns:</StyleRowTitle>
+            <Tooltip title='Images per row (1–50). Pixel size follows panel width; labels are sparse on the right to reduce clutter.'>
+              <Slider
+                style={{ flex: 1 }}
+                min={COLUMN_SLIDER_MIN}
+                max={COLUMN_SLIDER_MAX}
+                step={0.01}
+                marks={columnSliderMarks}
+                value={columnSliderPos}
+                tooltip={{ formatter: (v) => String(columnsFromSliderPos(Number(v))) }}
+                onChange={handlerChangeGridColumns}
+                onAfterChange={handlerAfterChangeGridColumns}
+                aria-label='Images per row'
+              />
+            </Tooltip>
           </StyleTopRows>
           {/* Expand/Collapse All */}
           <StyleTopRows>
@@ -504,11 +652,12 @@ const PreviewImages: React.FC = () => {
               </Tag>
             </StyleTopRows>
           )}
-          <div>
-            {allPaths.length === 0 ? (
-              customizeRenderEmpty()
-            ) : (
-              <StyledImgsContainer ref={ref}>
+          <StyleMainScrollSlot>
+            <StyledImgsContainer ref={setScrollContainerRef}>
+              {allPaths.length === 0 ? (
+                customizeRenderEmpty()
+              ) : (
+                <ThumbLoadBudgetProvider scrollRootRef={ref} ioGeneration={thumbIoGen}>
                 <Collapse activeKey={activeKey} onChange={handleChangeActiveKey}>
                   {allPaths.map((path) => {
                     const imgsInPanel = sortImagesInPanel(path)
@@ -525,7 +674,11 @@ const PreviewImages: React.FC = () => {
                         }
                         key={path}
                       >
-                        <StyleImageList>
+                        <StyleImageList
+                          style={
+                            { ['--iv-grid-cols']: String(imageGridColumns) } as React.CSSProperties
+                          }
+                        >
                           <Image.PreviewGroup
                             preview={{
                               scaleStep: 3,
@@ -546,18 +699,18 @@ const PreviewImages: React.FC = () => {
                               }
                             }}
                           >
-                            {imgsInPanel.map((img) => (
+                            {imgsInPanel.map((img, indexInFolder) => (
                               <StyleImage key={img.path}>
                                 <ImageLazyLoad
-                                  isScrolling={isScrolling}
                                   enableLazyLoad={enableLazyLoad}
                                   img={img}
-                                  size={size}
                                   backgroundColor={backgroundColor}
                                   autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
                                   onAutoPreview={onAutoPreview}
+                                  indexInFolder={indexInFolder}
+                                  imageGridColumns={imageGridColumns}
                                 />
-                                <ImageInfo size={size} img={img} onDeleteImage={onDeleteImage} />
+                                <ImageInfo img={img} onDeleteImage={onDeleteImage} />
                               </StyleImage>
                             ))}
                           </Image.PreviewGroup>
@@ -566,22 +719,23 @@ const PreviewImages: React.FC = () => {
                     )
                   })}
                 </Collapse>
-              </StyledImgsContainer>
-            )}
-          </div>
+                </ThumbLoadBudgetProvider>
+              )}
+            </StyledImgsContainer>
+          </StyleMainScrollSlot>
         </StyledPreviewImages>
       </Spin>
-      {
-        showSettingsModal && (
-          <SettingsModal
-            includeFolders={includeFolders}
-            excludeFolders={excludeFolders}
-            visible={showSettingsModal}
-            onClose={() => setShowSettingsModal(false)}
-            onApply={handleApplySettings}
-          />
-        )
-      }
+      </div>
+      {showSettingsModal && (
+        <SettingsModal
+          includeFolders={includeFolders}
+          excludeFolders={excludeFolders}
+          visible={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          onApply={handleApplySettings}
+        />
+      )}
+      </>
     </ConfigProvider>
   )
 }

@@ -34,16 +34,16 @@ export const AntdWebviewShell: React.FC<WebviewRootProps> = ({ components }) => 
     [vscodeIsDark, uiThemePreference, effectiveIsDark, cyclePreference]
   )
 
+  /** Height chain uses flex (see antd-global.css); keep colors here. */
   const rootWrapStyle: React.CSSProperties =
     uiThemePreference === 'follow'
       ? {
-          minHeight: '100%',
           backgroundColor: 'var(--vscode-editor-background)',
           color: 'var(--vscode-editor-foreground)'
         }
       : effectiveIsDark
-      ? { minHeight: '100%', backgroundColor: '#141414', color: 'rgba(255,255,255,0.85)' }
-      : { minHeight: '100%', backgroundColor: '#ffffff', color: 'rgba(0,0,0,0.88)' }
+      ? { backgroundColor: '#141414', color: 'rgba(255,255,255,0.85)' }
+      : { backgroundColor: '#ffffff', color: 'rgba(0,0,0,0.88)' }
 
   React.useEffect(() => {
     const body = document.body

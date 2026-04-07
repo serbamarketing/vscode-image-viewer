@@ -12,9 +12,16 @@ export const StyleEllipsis = styled.div`
 `
 
 export const StyleImageName = styled.div`
-  word-break: break-word;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   text-align: center;
   line-height: 16px;
   font-size: 12px;
   color: var(--vscode-foreground);
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 `

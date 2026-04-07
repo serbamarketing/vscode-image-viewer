@@ -1,25 +1,57 @@
+/**
+ * One grid cell: intersection-based prefetch bands, registry retain/release, staggered mount, Spin placeholder.
+ */
 import { EyeOutlined } from '@ant-design/icons'
 import { callVscode } from '@easy_vscode/webview'
 import { useInViewport } from 'ahooks'
-import { Image } from 'antd'
-import React, { useEffect, useRef, useState } from 'react'
+import { Image, Spin } from 'antd'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { IImage } from '..'
 import { MESSAGE_CMD } from '../../../constants'
+import { imageInlineBackground, thumbPadStyle } from '../../thumbSurfaceStyle'
+import {
+  computeThumbRetentionScore,
+  useThumbLoadBudget
+} from '../thumbLoadBudget'
 
 interface IImageLazyLoadProps {
-  isScrolling: boolean
   enableLazyLoad: boolean
   img: IImage
-  size: number
   backgroundColor: string
   autoPreview: boolean
   onAutoPreview: () => void
+  indexInFolder: number
+  imageGridColumns: number
 }
 
-const StyleImagePlaceHolder = styled.div`
-  display: inline-block;
-  border: solid 1px var(--vscode-widget-border, #ccc);
+const CellShell = styled.div`
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
+
+const ImgFit = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+`
+
+const LoadingCenter = styled.div`
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `
 
 const MIN_SIZE_SHOW_PREVIEW_INFO = 60
@@ -29,26 +61,125 @@ interface IDimensions {
   height: number
 }
 
-/**
- *
- * @param props
- * @returns
- */
-const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({ isScrolling, enableLazyLoad, img, size, backgroundColor, autoPreview = false, onAutoPreview }) => {
-  const ref = useRef(null)
-  const childRef = useRef(null);
-  const [inViewport] = useInViewport(ref)
-  const [isShow, setIsShow] = useState(!enableLazyLoad || inViewport)
+const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
+  enableLazyLoad,
+  img,
+  backgroundColor,
+  autoPreview = false,
+  onAutoPreview,
+  indexInFolder,
+  imageGridColumns
+}) => {
+  const { scrollRootRef, ioGeneration, registry, reveal } = useThumbLoadBudget()
+  const shellRef = useRef<HTMLDivElement>(null)
+
+  // ahooks `useInViewport` only rebinds when rootMargin/threshold change — nudge threshold so scroll root is picked up after mount.
+  const ioEpsilon = ioGeneration * 1e-9
+  const ioVisibleOpts = useMemo(
+    () => ({ root: scrollRootRef, threshold: 0.01 + ioEpsilon }),
+    [scrollRootRef, ioGeneration, ioEpsilon]
+  )
+  const ioNeighborOpts = useMemo(
+    () => ({ root: scrollRootRef, rootMargin: '100% 0px 100% 0px', threshold: ioEpsilon }),
+    [scrollRootRef, ioGeneration, ioEpsilon]
+  )
+  const ioWideOpts = useMemo(
+    () => ({ root: scrollRootRef, rootMargin: '200% 0px 200% 0px', threshold: ioEpsilon }),
+    [scrollRootRef, ioGeneration, ioEpsilon]
+  )
+
+  const [inVisible] = useInViewport(shellRef, ioVisibleOpts)
+  const [inNeighbor] = useInViewport(shellRef, ioNeighborOpts)
+  const [inWide] = useInViewport(shellRef, ioWideOpts)
+
+  const [latched, setLatched] = useState(false)
+  const [held, setHeld] = useState(!enableLazyLoad)
+  const [painted, setPainted] = useState(!enableLazyLoad)
   const [dimensions, setDimensions] = useState<IDimensions>()
   const [everAutoPreview, setEverAutoPreview] = useState(false)
+  const [cellEdge, setCellEdge] = useState(0)
+
+  const v = inVisible === true
+  const n = inNeighbor === true
+  const w = inWide === true
+
+  const score = useMemo(
+    () =>
+      enableLazyLoad
+        ? computeThumbRetentionScore({
+            inVisible: v,
+            inNeighbor: n,
+            inWide: w,
+            latched,
+            indexInFolder,
+            cols: imageGridColumns
+          })
+        : 0,
+    [enableLazyLoad, v, n, w, latched, indexInFolder, imageGridColumns]
+  )
+
+  useLayoutEffect(() => {
+    if (!enableLazyLoad) {
+      setHeld(true)
+      return
+    }
+    return registry.subscribe(img.fullPath, setHeld)
+  }, [enableLazyLoad, img.fullPath, registry])
+
+  useLayoutEffect(() => {
+    if (!enableLazyLoad) {
+      registry.release(img.fullPath)
+      return
+    }
+    if (score <= 0) {
+      registry.release(img.fullPath)
+    } else {
+      registry.retain(img.fullPath, score)
+    }
+  }, [enableLazyLoad, img.fullPath, score, registry])
 
   useEffect(() => {
-    if (!isScrolling) {
-      setIsShow(!enableLazyLoad || inViewport)
+    if (!enableLazyLoad) {
+      return () => {}
     }
-  }, [isScrolling, enableLazyLoad, inViewport])
+    const path = img.fullPath
+    return () => {
+      registry.release(path)
+    }
+  }, [enableLazyLoad, img.fullPath, registry])
 
-  // query dimensions of image via nodejs
+  useLayoutEffect(() => {
+    const el = shellRef.current
+    if (!el) {
+      return
+    }
+    const read = () => setCellEdge(el.clientWidth)
+    read()
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const inDecodeOrLatched = latched || w
+  const rawShow = enableLazyLoad ? held && inDecodeOrLatched : true
+
+  useEffect(() => {
+    if (!enableLazyLoad) {
+      setPainted(true)
+      return
+    }
+    if (!rawShow || !held) {
+      reveal.cancel(img.fullPath)
+      setPainted(false)
+      return
+    }
+    if (painted) {
+      return
+    }
+    const pri = v ? 1000 : n && !v ? 850 : 620
+    reveal.request(img.fullPath, pri, () => setPainted(true))
+  }, [enableLazyLoad, rawShow, held, painted, v, n, img.fullPath, reveal])
+
   const handleMouseOver = () => {
     if (!dimensions) {
       callVscode({ cmd: MESSAGE_CMD.GET_IMAGE_SIZE, data: { filePath: img.fullPath } }, (dimensions) => {
@@ -57,10 +188,6 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({ isScrolling, enableLazyL
     }
   }
 
-  /**
-   * open preview of image
-   * Unfortunately, 'visible' and 'onVisibleChange' props doesn't work here. I don't know why but I do it using simulated click event
-   */
   const openPreview = () => {
     const image = document.getElementById(img.fullPath)
     if (!image) {
@@ -73,6 +200,9 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({ isScrolling, enableLazyL
     })
     image.dispatchEvent(event)
   }
+
+  const isShow = rawShow && painted
+
   useEffect(() => {
     if (!everAutoPreview && autoPreview && isShow) {
       setEverAutoPreview(true)
@@ -81,38 +211,55 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({ isScrolling, enableLazyL
     }
   }, [autoPreview, isShow])
 
-  if (!isShow) {
-    return <StyleImagePlaceHolder ref={ref} style={{ width: size, height: size }} />
-  }
+  const pad = thumbPadStyle(backgroundColor)
+  const imgBg = imageInlineBackground(backgroundColor)
 
   return (
-    <Image
-      id={img.fullPath}
-      alt={img.fileName}
-      width={size}
-      height={size}
-      style={{ backgroundColor, objectFit: 'contain' }}
-      src={img.vscodePath}
-      preview={{
-        scaleStep: 3,
-        mask: (
-          <div className='ant-image-mask-info' onMouseOver={handleMouseOver}>
-            <EyeOutlined />
-            {size >= MIN_SIZE_SHOW_PREVIEW_INFO && (
-              <>
-                Preview
-                {dimensions && (
-                  <div style={{ fontSize: '12px' }}>
-                    {dimensions.width} x {dimensions.height}
-                  </div>
-                )}
-                <div style={{ fontSize: '12px' }}>{formatBytes(img.size)}</div>
-              </>
-            )}
-          </div>
-        )
-      }}
-    />
+    <CellShell ref={shellRef}>
+      {!isShow ? (
+        <LoadingCenter>
+          <Spin />
+        </LoadingCenter>
+      ) : (
+        <ImgFit style={pad}>
+          <Image
+            id={img.fullPath}
+            alt={img.fileName}
+            width='100%'
+            height='100%'
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              backgroundColor: imgBg
+            }}
+            src={img.vscodePath}
+            onLoad={() => setLatched(true)}
+            preview={{
+              scaleStep: 3,
+              mask: (
+                <div className='ant-image-mask-info' onMouseOver={handleMouseOver}>
+                  <EyeOutlined />
+                  {cellEdge >= MIN_SIZE_SHOW_PREVIEW_INFO && (
+                    <>
+                      Preview
+                      {dimensions && (
+                        <div style={{ fontSize: '12px' }}>
+                          {dimensions.width} x {dimensions.height}
+                        </div>
+                      )}
+                      <div style={{ fontSize: '12px' }}>{formatBytes(img.size)}</div>
+                    </>
+                  )}
+                </div>
+              )
+            }}
+          />
+        </ImgFit>
+      )}
+    </CellShell>
   )
 }
 

@@ -8,6 +8,8 @@
   --iv-secondary-fg: rgba(0, 0, 0, 0.58);
   --iv-placeholder-fg: rgba(0, 0, 0, 0.55);
   --iv-icon-muted: rgba(0, 0, 0, 0.52);
+  /** Thumbnail tile edge: blends into page bg (less contrast than --vscode-widget-border). */
+  --iv-thumb-edge: color-mix(in srgb, var(--iv-primary-fg) 7.5%, #ffffff 92.5%);
 }
 
 .webview-app-root[data-ui-theme='dark'] {
@@ -15,6 +17,7 @@
   --iv-secondary-fg: rgba(255, 255, 255, 0.68);
   --iv-placeholder-fg: rgba(255, 255, 255, 0.48);
   --iv-icon-muted: rgba(255, 255, 255, 0.58);
+  --iv-thumb-edge: color-mix(in srgb, var(--iv-primary-fg) 8.5%, #141414 91.5%);
 }
 
 .webview-app-root[data-ui-theme='follow'][data-effective-light='true'] {
@@ -34,6 +37,11 @@
     var(--vscode-descriptionForeground) 45%,
     var(--vscode-foreground) 55%
   );
+  --iv-thumb-edge: color-mix(
+    in srgb,
+    var(--vscode-foreground) 7.5%,
+    var(--vscode-editor-background) 92.5%
+  );
 }
 
 .webview-app-root[data-ui-theme='follow'][data-effective-light='false'] {
@@ -44,6 +52,19 @@
     var(--vscode-descriptionForeground)
   );
   --iv-icon-muted: var(--vscode-descriptionForeground);
+  --iv-thumb-edge: color-mix(
+    in srgb,
+    var(--vscode-foreground) 8.5%,
+    var(--vscode-editor-background) 91.5%
+  );
+}
+
+/**
+ * Fill the VS Code webview panel height and suppress the outer (document) scrollbar.
+ * Only the image list pane scrolls; toolbar + optional announcement sizes naturally.
+ */
+html {
+  height: 100%;
 }
 
 body {
@@ -53,11 +74,53 @@ body {
   font-size: 14px;
   padding: 0;
   margin: 0;
+  height: 100%;
+  overflow: hidden;
 }
 #root {
   height: 100%;
+  overflow: hidden;
   background-color: var(--vscode-editor-background);
   color: var(--vscode-editor-foreground);
+}
+
+div.webview-app-root {
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/** PreviewImages root: flex child that fills the shell. */
+.iv-preview-root {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.iv-preview-announcement {
+  flex-shrink: 0;
+}
+
+/** Ant Design Spin wrappers must participate in flex so the column can shrink (min-height: 0). */
+.iv-preview-root .ant-spin-nested-loading {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.iv-preview-root .ant-spin-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .ant-drawer-wrapper-body .ant-drawer-header {

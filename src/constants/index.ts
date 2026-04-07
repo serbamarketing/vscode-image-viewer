@@ -26,7 +26,15 @@ export const EXTENSION_COMMANDS = {
 }
 
 
+/** Thumbnail pad uses PS-style transparency grid (stored in config). */
+export const BACKGROUND_CHECKERBOARD = 'checkerboard'
+
+/** True transparency — webview background shows through; pad uses inset frame only. */
+export const BACKGROUND_TRANSPARENT = 'transparent'
+
 export const BACKGROUND_COLOR_OPTIONS = [
+  BACKGROUND_CHECKERBOARD,
+  BACKGROUND_TRANSPARENT,
   '#ffffff',
   '#cccccc',
   '#999999',
@@ -38,6 +46,6 @@ export const BACKGROUND_COLOR_OPTIONS = [
   '#8488b6'
 ]
 
-export const DEFAULT_BACKGROUND_COLOR = BACKGROUND_COLOR_OPTIONS[1]
+export const DEFAULT_BACKGROUND_COLOR = BACKGROUND_CHECKERBOARD
 
 export const DEFAULT_IMAGE_SIZE = 100

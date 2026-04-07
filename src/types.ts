@@ -15,7 +15,10 @@ export interface IConfig {
   keyword: string,
   activeKey: string[]
   backgroundColor: string,
-  size: number,
+  /** Legacy pixel hint; optional when only `imageGridColumns` / width-based default is used. */
+  size?: number,
+  /** 1–50; primary control for thumbnail grid. `size` is kept in sync for older configs. */
+  imageGridColumns?: number,
   includeFolders: string[],
   excludeFolders: string[],
   uiTheme?: WebviewUiThemePreference,
