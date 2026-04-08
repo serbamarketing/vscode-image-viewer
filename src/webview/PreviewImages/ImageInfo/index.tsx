@@ -24,7 +24,7 @@ const dropdownGetPopupContainer = () => document.body
 type ImageInfoProps = {
   img: IImage
   onDeleteImage: (fullPath: string) => void
-  /** 密集网格（列数多）为 false 时不渲染文件名行。 */
+  /** When false (dense grid / high column count), skip the file name row under the thumb. */
   showFileName?: boolean
 }
 /* eslint-enable @typescript-eslint/no-unused-vars */

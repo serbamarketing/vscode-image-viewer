@@ -1,5 +1,6 @@
+import * as fs from 'fs'
 import * as path from 'path'
-import { Uri, ViewColumn, Webview, env } from 'vscode'
+import { Uri, ViewColumn, Webview, env as vscodeEnv } from 'vscode'
 import { utils, webviewUtils } from '@easy_vscode/core'
 import { IWebview, IWebviewProps, IMessage } from '@easy_vscode/core/lib/types'
 import { DIST_WEBVIEW_INDEX_HTML, EXTENSION_COMMANDS, MESSAGE_CMD, WEBVIEW_NAMES } from '../../constants'
@@ -7,6 +8,7 @@ import { getAllImgs, getImageBase64, getImageSize } from './utils'
 import { normalizeThumbTierEdge } from '../../config/gridThumb'
 import { resolveThumbForGrid, cacheFsPathToThumbResourceUri } from './thumbGridCache'
 import { readLocalConfigFile, writeLocalConfigFile } from './config'
+import { imageViewerPanelInstanceKey, imageViewerPanelTitle } from '../imageViewerPanelScope'
 
 /** `GET_THUMB_FOR_GRID` 回传 webview 的载荷。 */
 export type GridThumbWirePayload =
@@ -30,29 +32,54 @@ const webviewProps: IWebviewProps = {
       retainContextWhenHidden: true
     }
   },
-  iconPath: 'assets/logo.png'
+  iconPath: 'assets/logo.png',
+  multiPanel: {
+    instanceKeyFromCommandArgs: imageViewerPanelInstanceKey,
+    resolvePanelTitle: imageViewerPanelTitle
+  }
 }
 
 const messageHandlers = new Map([
   [
     MESSAGE_CMD.GET_ALL_IMGS,
     (message: IMessage, webview: Webview) => {
-      const imgs = getAllImgs(webview)
-      invokeCallback(viewType, message, { imgs, projectPath: getProjectPath() })
+      const basePath = path.resolve(getProjectPath())
+      const hint = (message.data as { scopeHintFsPath?: string } | undefined)?.scopeHintFsPath
+      let listScopeAbs: string | null = null
+      if (hint && typeof hint === 'string') {
+        const trimmed = hint.trim()
+        if (trimmed.length > 0) {
+          try {
+            const resolved = path.resolve(trimmed)
+            if (fs.existsSync(resolved)) {
+              const st = fs.statSync(resolved)
+              const folderAbs = st.isDirectory() ? resolved : path.dirname(resolved)
+              const baseNorm = path.resolve(basePath)
+              if (folderAbs === baseNorm || folderAbs.startsWith(baseNorm + path.sep)) {
+                listScopeAbs = folderAbs
+              }
+            }
+          } catch {
+            //
+          }
+        }
+      }
+      const imgs = getAllImgs(webview, listScopeAbs)
+      invokeCallback(viewType, message, { imgs, projectPath: getProjectPath() }, webview)
     }
   ],
   [
     MESSAGE_CMD.RENAME_FILE,
-    (message: IMessage) => {
+    (message: IMessage, w: Webview) => {
       renameFile(message.data.filePath, message.data.newName)
-      invokeCallback(viewType, message, successResp)
+      invokeCallback(viewType, message, successResp, w)
     }
   ],
   [
     MESSAGE_CMD.DELETE_FILE,
-    (message: IMessage) => {
+    (message: IMessage, w: Webview) => {
       deleteFile(message.data.filePath)
-      invokeCallback(viewType, message, successResp)
+      invokeCallback(viewType, message, successResp, w)
     }
   ],
   [
@@ -60,21 +87,21 @@ const messageHandlers = new Map([
     (message: IMessage) => {
       const rel = String(message.data.path ?? '').replace(/^[/\\]+/, '')
       const abs = path.join(getProjectPath(), rel)
-      void env.openExternal(Uri.file(abs))
+      void vscodeEnv.openExternal(Uri.file(abs))
     }
   ],
   [
     MESSAGE_CMD.GET_IMAGE_BASE64,
-    (message: IMessage) => {
+    (message: IMessage, w: Webview) => {
       const strBase64 = getImageBase64(message.data.filePath)
-      invokeCallback(viewType, message, strBase64)
+      invokeCallback(viewType, message, strBase64, w)
     }
   ],
   [
     MESSAGE_CMD.GET_IMAGE_SIZE,
-    (message: IMessage) => {
+    (message: IMessage, w: Webview) => {
       const dimensions = getImageSize(message.data.filePath)
-      invokeCallback(viewType, message, dimensions)
+      invokeCallback(viewType, message, dimensions, w)
     }
   ],
   [
@@ -84,7 +111,7 @@ const messageHandlers = new Map([
       const filePathIn = String(message.data?.filePath ?? '')
       const targetEdge = normalizeThumbTierEdge(Number(message.data?.targetMaxEdgePx))
       const reply = (payload: GridThumbWirePayload) => {
-        invokeCallback(viewType, { ...message, callbackId } as IMessage, payload)
+        invokeCallback(viewType, { ...message, callbackId } as IMessage, payload, panelWebview)
       }
       void (async () => {
         try {
@@ -107,14 +134,27 @@ const messageHandlers = new Map([
   ],
   [
     MESSAGE_CMD.SAVE_CONFIG,
-    (message: IMessage) => {
+    (message: IMessage, w: Webview) => {
       writeLocalConfigFile(message.data)
-      invokeCallback(viewType, message, successResp)
+      invokeCallback(viewType, message, successResp, w)
     }
   ],
   [
     MESSAGE_CMD.GET_CONFIG,
-    (message: IMessage) => invokeCallback(viewType, message, readLocalConfigFile())
+    (message: IMessage, w: Webview) =>
+      invokeCallback(viewType, message, {
+        ...readLocalConfigFile(),
+        hostUiLanguage: vscodeEnv.language
+      }, w)
+  ],
+  [
+    MESSAGE_CMD.OPEN_EXTERNAL_URI,
+    (message: IMessage) => {
+      const raw = String((message.data as { url?: string } | undefined)?.url ?? '').trim()
+      if (raw) {
+        void vscodeEnv.openExternal(Uri.parse(raw))
+      }
+    }
   ],
 ])
 

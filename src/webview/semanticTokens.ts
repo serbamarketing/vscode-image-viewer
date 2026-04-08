@@ -1,6 +1,6 @@
 import type { WebviewUiThemePreference } from 'types'
 
-/** Modal/Tooltip 等挂在 body 上，需与 .webview-app-root 使用同一套语义变量 */
+/** Modal / Tooltip portals use `body`; mirror `.webview-app-root` semantic variables there. */
 const KEYS = [
   '--iv-primary-fg',
   '--iv-secondary-fg',
@@ -15,8 +15,8 @@ export function clearBodySemanticTokens(): void {
 }
 
 /**
- * 在 document.body 上设置与 antd-global.css 中 .webview-app-root 一致的 token，
- * 以便 Ant Design Modal（portal 到 body）内 placeholder 等能继承到 --iv-placeholder-fg。
+ * Copy `.webview-app-root` tokens from antd-global.css onto `document.body` so Ant Design Modal
+ * (portaled to body) picks up `--iv-placeholder-fg` for placeholders, etc.
  */
 export function applyBodySemanticTokens(
   uiThemePreference: WebviewUiThemePreference,

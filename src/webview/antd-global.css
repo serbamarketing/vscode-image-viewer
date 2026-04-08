@@ -1,7 +1,7 @@
 /**
- * 次要/占位文字：随 data-ui-theme 与 VS Code 明/暗兼顾。
- * - 强制浅/深：不用 VS Code token（否则常出现「浅色页面 + 深色 token」不可读）。
- * - 跟随：浅色界面用 color-mix 略加深 description，避免个别主题过浅。
+ * Secondary / placeholder text tuned for `data-ui-theme` with VS Code light / dark.
+ * - Forced light/dark: avoid raw VS Code tokens (avoids unreadable light page + dark token).
+ * - Follow: on light UI, color-mix slightly darkens description where themes are too faint.
  */
 .webview-app-root[data-ui-theme='light'] {
   --iv-primary-fg: rgba(0, 0, 0, 0.88);
@@ -167,6 +167,65 @@ div.webview-app-root {
   flex-shrink: 0;
 }
 
+/** Top release-notes strip (inside .iv-preview-root > .ant-spin). */
+.iv-announcement-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 6px 16px 8px;
+  margin: 0;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35));
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+
+.iv-announcement-bar__left {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  max-width: min(100%, 70%);
+  height: auto !important;
+  padding: 2px 4px !important;
+  color: var(--vscode-foreground) !important;
+}
+
+.iv-announcement-bar__left:hover {
+  background: var(--vscode-list-hoverBackground) !important;
+}
+
+.iv-announcement-bar__version {
+  font-weight: 600;
+  color: var(--vscode-textLink-foreground);
+}
+
+.iv-announcement-bar__cta {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.iv-announcement-bar__hint {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+}
+
+.iv-announcement-bar__right {
+  flex-shrink: 0;
+}
+
+.iv-announcement-feature-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.iv-announcement-feature-list li {
+  margin-bottom: 8px;
+  line-height: 1.45;
+}
+
 /** Ant Design Spin wrappers must participate in flex so the column can shrink (min-height: 0). */
 .iv-preview-root .ant-spin-nested-loading {
   flex: 1 1 auto;
@@ -239,7 +298,7 @@ div .ant-modal-confirm-body .ant-modal-confirm-title {
 div .ant-modal-confirm .ant-modal-body {
   padding: 24px;
 }
-/* 关闭：不要用过大尺寸，否则在暗色下会像一块隐性色块；颜色跟 icon 走主题变量 */
+/* Close control: avoid oversized hit target (reads as a slab in dark); color from icon / theme tokens */
 .ant-modal .ant-modal-close {
   color: var(--vscode-icon-foreground, var(--vscode-foreground));
   background: transparent;
@@ -277,7 +336,7 @@ div .ant-tooltip {
   max-width: none;
 }
 
-/* 下拉菜单：避免挂在 text-align:center 的触发节点上时继承居中；并统一左对齐 */
+/* Dropdown: do not inherit centered trigger; keep menu items left-aligned */
 .ant-dropdown .ant-menu-vertical .ant-menu-item,
 .ant-dropdown .ant-menu-vertical .ant-menu-submenu-title {
   text-align: left;
@@ -298,7 +357,7 @@ div .ant-tooltip {
   padding: 12px 24px;
 }
 
-/* 图片预览顶部：文件名 + 序号（countRender 根节点） */
+/* Image preview chrome: file name + counter (`countRender` root) */
 .iv-image-preview-progress {
   display: flex;
   flex-direction: column;
@@ -321,4 +380,12 @@ div .ant-tooltip {
 .iv-image-preview-counter {
   font-size: 14px;
   opacity: 0.95;
+}
+
+.iv-image-preview-counter-sep {
+  opacity: 0.72;
+}
+
+.iv-image-preview-counter-folder {
+  font-weight: 500;
 }

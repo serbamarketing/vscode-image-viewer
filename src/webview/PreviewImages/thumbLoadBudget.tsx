@@ -5,14 +5,14 @@
 import React, { createContext, useContext, useLayoutEffect, useMemo, useRef } from 'react'
 
 /**
- * 缩略持有上限随列数放大（高列数下一屏格子数 ≫ 旧常量 300，否则会 LRU 掉仍可见单元 → 长期 Spin）。
+ * Raise thumb retain cap with column count (many columns ⇒ many visible cells; a fixed ~300 evicts on-screen cells ⇒ endless Spin).
  */
 export function computeThumbLoadMaxColumns(cols: number): number {
   const c = Math.max(1, Math.round(Number(cols) || 1))
   return Math.min(8000, Math.max(400, c * 48))
 }
 
-/** 与列数相关的 reveal 吞吐：高列数下一帧多放行若干格，避免队列积压过久。 */
+/** Reveal budget per animation frame scales with columns so the queue does not fall behind. */
 export function computeThumbRevealPerFrame(cols: number): number {
   const c = Math.max(1, Math.round(Number(cols) || 1))
   return Math.max(8, Math.min(40, Math.ceil(c / 2)))
@@ -230,7 +230,7 @@ export function ThumbLoadBudgetProvider({
   children: React.ReactNode
   scrollRootRef: React.RefObject<HTMLElement | null>
   ioGeneration: number
-  /** 当前图片网格列数（用于持有上限与 reveal 帧配额）。 */
+  /** Current grid column count (drives retain cap and per-frame reveal quota). */
   gridColumns: number
 }): React.ReactElement {
   const loadCap = useMemo(() => computeThumbLoadMaxColumns(gridColumns), [gridColumns])

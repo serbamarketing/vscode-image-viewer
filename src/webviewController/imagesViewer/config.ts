@@ -2,6 +2,7 @@ import { IConfig } from 'types'
 import { utils } from '@easy_vscode/core'
 import * as fs from 'fs'
 import json5 from 'json5'
+import { BACKGROUND_TRANSPARENT } from '../../constants'
 
 const { getProjectPath, envVars } = utils
 
@@ -9,7 +10,7 @@ const DEFAULT_CONFIG: IConfig = {
   showImageTypes: ['.svg', '.png', '.jpeg', '.jpg', '.ico', '.gif', '.webp', '.bmp', '.tif', '.tiff', '.apng', '.avif'],
   keyword: '',
   activeKey: [],
-  backgroundColor: 'checkerboard',
+  backgroundColor: BACKGROUND_TRANSPARENT,
   includeFolders: [],
   excludeFolders: [],
   uiTheme: 'follow',

@@ -195,6 +195,6 @@ export const StyledThemeToggle = styled.span`
 export const StyledReloadOutlined = styled(ReloadOutlined)`
   ${toolbarIconSlot}
   right: 0;
-  /* 比其余大 0.5px，略增笔画感但不抢眼 */
+  /* +0.5px vs siblings for slightly clearer strokes without drawing focus */
   font-size: 20.5px;
 `

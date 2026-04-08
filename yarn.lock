@@ -1266,11 +1266,15 @@
   resolved "https://registry.npmmirror.com/@discoveryjs/json-ext/-/json-ext-0.5.7.tgz#1d572bfbbe14b7704e0ba0f39b74815b84870d70"
   integrity sha512-dBVuXR082gk3jsFp7Rd/JI4kytwGHecnCoTtXFb7DB6CNHp4rg5k1bhg0nWdLGLnOV71lmDzGQaLMy8iPLY0pw==
 
-"@easy_vscode/core@file:../easy-vscode/packages/core":
-  version "2.0.0"
+"@easy_vscode/core@2.0.1":
+  version "2.0.1"
+  resolved "https://registry.npmmirror.com/@easy_vscode/core/-/core-2.0.1.tgz#acb03a4688d00923a452f0255d797de00cb9ee3d"
+  integrity sha512-1d59QXT+CozTSI6ubVLDNiABjPiqqfm/4GHtrMG8esM/FPJy9X8IV4zJ74KJiPXYBykEgVf1QseQAr47u9fANA==
 
-"@easy_vscode/webview@file:../easy-vscode/packages/webview":
-  version "2.0.0"
+"@easy_vscode/webview@2.0.1":
+  version "2.0.1"
+  resolved "https://registry.npmmirror.com/@easy_vscode/webview/-/webview-2.0.1.tgz#91bccc7d406713c0e68726e629679a91dc6906f5"
+  integrity sha512-uUwVC2ib1VomIm5oZ3WjqM4uDhDtF40rlV3PiuaLSSP5Q1IzD7Qw+NhDjC/CrlZfimJA7lLYxxliIOuMh0ciUQ==
 
 "@emotion/hash@^0.8.0":
   version "0.8.0"
@@ -2349,10 +2353,10 @@
     "@types/react" "*"
     csstype "^3.0.2"
 
-"@types/vscode@^1.60.0":
-  version "1.76.0"
-  resolved "https://registry.npmmirror.com/@types/vscode/-/vscode-1.76.0.tgz#967c0fbe09921818bbf201f1cbcb81b981c6249c"
-  integrity sha512-CQcY3+Fe5hNewHnOEAVYj4dd1do/QHliXaknAEYSXx2KEHUzFibDZSKptCon+HPgK55xx20pR+PBJjf0MomnBA==
+"@types/vscode@^1.75.0":
+  version "1.115.0"
+  resolved "https://registry.npmmirror.com/@types/vscode/-/vscode-1.115.0.tgz#428bef70a03c70dbe9f76438f4b4b7f569962303"
+  integrity sha512-/M8cdznOlqtMqduHKKlIF00v4eum4ZWKgn8YoPRKcN6PDdvoWeeqDaQSnw63ipDbq1Uzz78Wndk/d0uSPwORfA==
 
 "@types/yargs-parser@*":
   version "21.0.0"

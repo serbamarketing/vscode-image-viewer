@@ -1,7 +1,7 @@
 /**
- * Windowed grid for one folder: only visible rows mount cells. Preview still spans all images via `items`.
+ * Windowed grid for one folder: only visible rows mount cells.
+ * Full-size preview uses the outer `PreviewImages` `Image.PreviewGroup` and global `items` so the lightbox spans folders.
  */
-import { Image } from 'antd'
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { IImage } from './imageTypes'
 import { thumbDecodeMaxEdgeFromCellWidth } from '../../config/gridThumb'
@@ -10,13 +10,15 @@ import ImageInfo from './ImageInfo'
 import ImageLazyLoad from './ImageLazyLoad'
 import { StyleImage, StyleImageList } from './style'
 
-/** Text block under square thumb (ImageInfo margin + line-clamp × line-height)。列数过大时为 0。 */
+/** Space under square thumb (ImageInfo margin + line-clamp × line-height); zero when column count is very high. */
 const CAPTION_BELOW_PX_FULL = 52
 /** Extra rows above/below viewport. */
 const ROW_OVERSCAN = 2
 /** Below this count, render a flat map (same DOM as before virtualizer existed). */
 const MIN_IMAGES_FOR_VIRTUAL = 40
 
+/* Callback parameter name is only for documentation. */
+/* eslint-disable no-unused-vars -- type-only parameter names */
 export interface VirtualFolderImageGridProps {
   /** Bumped on main list scroll so all open folders recompute visible rows (single listener on parent). */
   scrollTick: number
@@ -31,6 +33,7 @@ export interface VirtualFolderImageGridProps {
   onAutoPreview: () => void
   onDeleteImage: (fullPath: string) => void
 }
+/* eslint-enable no-unused-vars */
 
 function scrollContentOffsetOfElement(el: HTMLElement, scroller: HTMLElement): number {
   const er = el.getBoundingClientRect()
@@ -65,8 +68,6 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
   const rowCount = Math.max(0, Math.ceil(imgs.length / cols))
   const totalHeight = rowCount > 0 ? rowCount * rowBody + Math.max(0, rowCount - 1) * gap : 0
 
-  const previewItems = useMemo(() => imgs.map((i) => i.vscodePath), [imgs])
-
   const computeWindow = useCallback(() => {
     const sc = scrollRootRef.current
     const wrap = wrapRef.current
@@ -97,7 +98,7 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
 
   const rafRef = useRef<number | null>(null)
   const scheduleCompute = useCallback(() => {
-    if (rafRef.current != null) {
+    if (rafRef.current !== null) {
       return
     }
     rafRef.current = requestAnimationFrame(() => {
@@ -119,31 +120,12 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
     ro.observe(wrap)
     return () => {
       ro.disconnect()
-      if (rafRef.current != null) {
+      if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current)
         rafRef.current = null
       }
     }
   }, [scheduleCompute, totalHeight, imgs.length, cols])
-
-  const countRender = useCallback(
-    (current: number, total: number) => {
-      const name = imgs[current - 1]?.fileName ?? ''
-      return (
-        <div className='iv-image-preview-progress'>
-          {name ? (
-            <span className='iv-image-preview-filename' title={name}>
-              {name}
-            </span>
-          ) : null}
-          <bdi className='iv-image-preview-counter'>
-            {current} / {total}
-          </bdi>
-        </div>
-      )
-    },
-    [imgs]
-  )
 
   if (imgs.length === 0) {
     return null
@@ -154,23 +136,21 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
   if (!useVirtual) {
     return (
       <StyleImageList style={{ ['--iv-grid-cols']: String(cols) } as React.CSSProperties}>
-        <Image.PreviewGroup preview={{ scaleStep: 3, countRender }} items={previewItems}>
-          {imgs.map((img, indexInFolder) => (
-            <StyleImage key={img.path}>
-              <ImageLazyLoad
-                enableLazyLoad={enableLazyLoad}
-                img={img}
-                backgroundColor={backgroundColor}
-                autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
-                onAutoPreview={onAutoPreview}
-                indexInFolder={indexInFolder}
-                imageGridColumns={cols}
-                thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
-              />
-              <ImageInfo img={img} onDeleteImage={onDeleteImage} showFileName={showFileCaption} />
-            </StyleImage>
-          ))}
-        </Image.PreviewGroup>
+        {imgs.map((img, indexInFolder) => (
+          <StyleImage key={img.path}>
+            <ImageLazyLoad
+              enableLazyLoad={enableLazyLoad}
+              img={img}
+              backgroundColor={backgroundColor}
+              autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
+              onAutoPreview={onAutoPreview}
+              indexInFolder={indexInFolder}
+              imageGridColumns={cols}
+              thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
+            />
+            <ImageInfo img={img} onDeleteImage={onDeleteImage} showFileName={showFileCaption} />
+          </StyleImage>
+        ))}
       </StyleImageList>
     )
   }
@@ -182,57 +162,55 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
 
   return (
     <div className='iv-virtual-folder-grid' style={{ width: '100%' }}>
-      <Image.PreviewGroup preview={{ scaleStep: 3, countRender }} items={previewItems}>
-        <div ref={wrapRef} style={{ position: 'relative', height: totalHeight, minHeight: totalHeight, width: '100%' }}>
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              top: win.startRow * rowStride
-            }}
-          >
-            {rows.map((rowIdx) => (
-              <div
-                key={rowIdx}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-                  columnGap: gap,
-                  rowGap: 0,
-                  minHeight: rowBody,
-                  boxSizing: 'border-box',
-                  alignItems: 'start',
-                  marginBottom: rowIdx < rowCount - 1 ? gap : 0
-                }}
-              >
-                {Array.from({ length: cols }, (_, c) => {
-                  const i = rowIdx * cols + c
-                  if (i >= imgs.length) {
-                    return <div key={`empty-${rowIdx}-${c}`} />
-                  }
-                  const img = imgs[i]
-                  return (
-                    <StyleImage key={img.path}>
-                      <ImageLazyLoad
-                        enableLazyLoad={enableLazyLoad}
-                        img={img}
-                        backgroundColor={backgroundColor}
-                        autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
-                        onAutoPreview={onAutoPreview}
-                        indexInFolder={i}
-                        imageGridColumns={cols}
-                        thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
-                      />
-                      <ImageInfo img={img} onDeleteImage={onDeleteImage} showFileName={showFileCaption} />
-                    </StyleImage>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
+      <div ref={wrapRef} style={{ position: 'relative', height: totalHeight, minHeight: totalHeight, width: '100%' }}>
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: win.startRow * rowStride
+          }}
+        >
+          {rows.map((rowIdx) => (
+            <div
+              key={rowIdx}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                columnGap: gap,
+                rowGap: 0,
+                minHeight: rowBody,
+                boxSizing: 'border-box',
+                alignItems: 'start',
+                marginBottom: rowIdx < rowCount - 1 ? gap : 0
+              }}
+            >
+              {Array.from({ length: cols }, (_, c) => {
+                const i = rowIdx * cols + c
+                if (i >= imgs.length) {
+                  return <div key={`empty-${rowIdx}-${c}`} />
+                }
+                const img = imgs[i]
+                return (
+                  <StyleImage key={img.path}>
+                    <ImageLazyLoad
+                      enableLazyLoad={enableLazyLoad}
+                      img={img}
+                      backgroundColor={backgroundColor}
+                      autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
+                      onAutoPreview={onAutoPreview}
+                      indexInFolder={i}
+                      imageGridColumns={cols}
+                      thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
+                    />
+                    <ImageInfo img={img} onDeleteImage={onDeleteImage} showFileName={showFileCaption} />
+                  </StyleImage>
+                )
+              })}
+            </div>
+          ))}
         </div>
-      </Image.PreviewGroup>
+      </div>
     </div>
   )
 }

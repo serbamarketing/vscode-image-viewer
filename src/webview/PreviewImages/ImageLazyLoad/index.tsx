@@ -23,7 +23,7 @@ interface IImageLazyLoadProps {
   onAutoPreview: () => void
   indexInFolder: number
   imageGridColumns: number
-  /** 扩展侧缩略解码档位：100 / 200 / 400 / 800 / 1600，随列宽变化。 */
+  /** Host thumbnail decode tier max edge (100 / 200 / 400 / 800 / 1600), derived from column width. */
   thumbTargetMaxEdgePx: number
 }
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0.0] - 2026-04-09
+
+### Added
+
+- **UI themes:** switch light / dark for the Image Viewer panel; default follows VS Code or Cursor.
+- **Grid layout:** control thumbnail density with **Columns** (replaces the old Size-centric layout for better use of panel width).
+- **Sorting:** multiple ways to sort images **within each folder** (name, modified time, size; ascending / descending).
+- **Preview backdrops:** checkerboard and **transparent** (default) background options, plus solid color swatches.
+- **Preview:** large-image preview shows the **file name**.
+- **Release notes:** in-panel **“What’s new”** for this version (dismissible; text matches this changelog / announcement).
+- **Explorer workflow:** right-click a **folder** or file to open Image Viewer — **only that directory tree** is scanned (improves performance in very large projects).
+- **Multiple panels:** different folders can each get their own Image Viewer **editor tab**; tab **title** includes the scoped folder name.
+- **Robustness:** ignore macOS **`._*`** sidecar files on volumes such as exFAT; treat image extensions **case-insensitively** (e.g. `.JPG`).
+
+### Changed
+
+- **Runtime:** extension target **VS Code 1.75+**; activation is inferred from `contributes` (no broad `activationEvents: ["*"]`).
+- **Web stack:** Ant Design 5–based webview shell and styling refresh.
+- **Thumbnail pipeline:** faster grid thumbnails on macOS (e.g. `sips`) with tiered decode sizes; ongoing lazy-load / I/O budget tuning for huge grids.
+
 ## [1.6.0] - 2023-12-18
 
 ### Added

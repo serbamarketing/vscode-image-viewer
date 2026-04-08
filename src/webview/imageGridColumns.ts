@@ -4,7 +4,7 @@ import type { SliderSingleProps } from 'antd/es/slider'
 export const IMAGE_GRID_COL_MIN = 1
 export const IMAGE_GRID_COL_MAX = 50
 
-/** 列数大于此值时网格不显示文件名（密集预览）。 */
+/** Above this column count, hide per-cell file names (dense preview). */
 export const IMAGE_GRID_SHOW_FILENAME_MAX_COLS = 30
 
 /**
@@ -182,7 +182,7 @@ export function approxPersistedThumbSize(innerWidth: number, columns: number): n
 }
 
 /**
- * 与 `VirtualFolderImageGrid` 一致：列表内容区内单个正方形缩略格子的宽度（像素）。
+ * Square thumb cell width (px) inside the list content area; same as `VirtualFolderImageGrid`.
  */
 export function gridSquareCellWidthPx(listInnerWidth: number, columns: number): number {
   const cols = clampCol(columns)

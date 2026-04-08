@@ -19,6 +19,8 @@ export const MESSAGE_CMD = {
   GET_THUMB_FOR_GRID: 'getThumbForGrid',
   SAVE_CONFIG: 'saveConfig',
   GET_CONFIG: 'getConfig',
+  /** Open https URL or other URI in system browser (extension host `openExternal`). */
+  OPEN_EXTERNAL_URI: 'openExternalUri',
 }
 
 export const EXTENSION_NAME = 'vscode-infra'
@@ -48,6 +50,6 @@ export const BACKGROUND_COLOR_OPTIONS = [
   '#8488b6'
 ]
 
-export const DEFAULT_BACKGROUND_COLOR = BACKGROUND_CHECKERBOARD
+export const DEFAULT_BACKGROUND_COLOR = BACKGROUND_TRANSPARENT
 
 export const DEFAULT_IMAGE_SIZE = 100

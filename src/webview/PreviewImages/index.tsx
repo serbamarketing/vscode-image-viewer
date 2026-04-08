@@ -4,13 +4,13 @@ import {
   Collapse,
   ConfigProvider,
   Empty,
+  Image,
   Input,
   Select,
   Skeleton,
   Slider,
   Space,
   Spin,
-  Tag,
   Tooltip
 } from 'antd'
 import { BgColorsOutlined, FolderOpenTwoTone, InfoCircleOutlined, MoonOutlined, SearchOutlined, SunOutlined } from '@ant-design/icons'
@@ -58,6 +58,7 @@ import {
 import { IMAGE_SORT_OPTIONS, compareImagesForSort } from '../imageSort'
 import type { IImage } from './imageTypes'
 import { VirtualFolderImageGrid } from './VirtualFolderImageGrid'
+import { AnnouncementBar } from './AnnouncementBar'
 
 export type { IImage } from './imageTypes'
 
@@ -71,6 +72,39 @@ const WORKSPACE_ROOT_DISPLAY = '(workspace root)'
 function formatRelativeDirDisplay(path: string): string {
   const trimmed = path.replace(/^\/|\/$/g, '')
   return trimmed === '' ? WORKSPACE_ROOT_DISPLAY : trimmed
+}
+
+/** Command argument as JSON-deserialized VS Code `Uri` or plain string; prefer `fsPath` when present. */
+function commandArgToFsPath(arg: unknown): string {
+  if (arg === undefined || arg === null) {
+    return ''
+  }
+  if (typeof arg === 'string') {
+    return arg
+  }
+  if (typeof arg === 'object') {
+    const o = arg as { fsPath?: string; path?: string }
+    if (typeof o.fsPath === 'string' && o.fsPath.length > 0) {
+      return o.fsPath
+    }
+    if (typeof o.path === 'string' && o.path.length > 0) {
+      const p = o.path
+      if (/^\/[a-zA-Z]:\//.test(p)) {
+        return p.slice(1).replace(/\//g, '\\')
+      }
+      return p
+    }
+  }
+  return ''
+}
+
+function readWindowCommandScopeHint(): string | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  const w = window as Window & { commandArgs?: unknown[] }
+  const p = commandArgToFsPath(w.commandArgs?.[0])
+  return p.length > 0 ? p : null
 }
 
 /** Tooltip for background swatches: specials in English; solid colors use stored hex (e.g. #ffffff). */
@@ -90,6 +124,11 @@ type RawWorkspaceImage = Pick<IImage, 'path' | 'vscodePath' | 'size'> & {
   fullPath?: string
 }
 
+/** Normalize config entries like `.jpg` to match {@link IImage.fileType} (no leading dot, lower case). */
+function normalizeConfiguredImageTypes(types: string[]): string[] {
+  return types.map((t) => String(t).replace(/^\./, '').toLowerCase())
+}
+
 const completeImgs = (imgs: RawWorkspaceImage[], projectPath: string): IImage[] => {
   const fallbackFullPath = (rel: string) => {
     const base = projectPath.replace(/[/\\]+$/, '')
@@ -101,7 +140,7 @@ const completeImgs = (imgs: RawWorkspaceImage[], projectPath: string): IImage[] 
     const filePath = img.path
     const dirPath = filePath.substring(0, filePath.lastIndexOf('/') + 1)
     const fileName = filePath.substring(filePath.lastIndexOf('/') + 1)
-    const fileType = filePath.substring(filePath.lastIndexOf('.') + 1)
+    const fileType = filePath.substring(filePath.lastIndexOf('.') + 1).toLowerCase()
     const newImg: IImage = {
       ...img,
       fullPath: img.fullPath && img.fullPath.length > 0 ? img.fullPath : fallbackFullPath(img.path),
@@ -154,17 +193,19 @@ const PreviewImages: React.FC = () => {
   const [layoutSliderPos, setLayoutSliderPos] = useState<number>(() =>
     sliderPosFromColumns(columnsFromApproxThumbWidth(DEFAULT_COLUMN_LAYOUT_GUESS_PX))
   )
-  const [relativeDir, setRelativeDir] = useState<string>('')
+  const scopeHintFsPathRef = useRef<string | null>(readWindowCommandScopeHint())
   const initClickFilePath =
-    (typeof window !== 'undefined' &&
-      (window as Window & { commandArgs?: { path?: string }[] }).commandArgs?.[0]?.path) ||
+    (typeof window !== 'undefined' && commandArgToFsPath(
+      (window as Window & { commandArgs?: unknown[] }).commandArgs?.[0]
+    )) ||
     ''
   const [clickFilePath, setClickFilePath] = useState<string>(initClickFilePath)
   const [everAutoPreview, setEverAutoPreview] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [includeFolders, setIncludeFolders] = useState<string[]>([])
   const [excludeFolders, setExcludeFolders] = useState<string[]>([])
-  const [showAnnouncement, setShowAnnouncement] = useState(true)
+  /** `vscode.env.language` from host `GET_CONFIG` (announcement modal locale). */
+  const [hostUiLanguage, setHostUiLanguage] = useState<string | undefined>(undefined)
   const [imageSort, setImageSort] = useState<ImageSortMode>('nameAsc')
   const [gridInnerWidth, setGridInnerWidth] = useState(0)
   const fallbackLayoutWidthRef = useRef(DEFAULT_COLUMN_LAYOUT_GUESS_PX)
@@ -188,7 +229,7 @@ const PreviewImages: React.FC = () => {
   }, [])
 
   const onImageListScroll = useCallback(() => {
-    if (listScrollRafRef.current != null) {
+    if (listScrollRafRef.current !== null) {
       return
     }
     listScrollRafRef.current = requestAnimationFrame(() => {
@@ -237,53 +278,38 @@ const PreviewImages: React.FC = () => {
     }
   }, [allPaths.length])
 
-  /**
-   * get file directory of path
-   */
-  const getFileDirectory = (path: string) => {
-    return path.substring(0, path.lastIndexOf('/') + 1)
-  }
-
   const refreshImgs = useCallback(() => {
     setLoading(true)
-    callVscode({ cmd: MESSAGE_CMD.GET_ALL_IMGS }, ({ imgs, projectPath }: { imgs: RawWorkspaceImage[]; projectPath: string }) => {
-      currentProjectPath.current = projectPath
-      if (clickFilePath) {
-        const fileRelativePath = clickFilePath.replace(currentProjectPath.current, '')
-        const isFile = /.*\..{3,5}/.test(fileRelativePath)
-        const relativeDir = isFile ? getFileDirectory(fileRelativePath) : fileRelativePath
-        if (relativeDir === '/') {
-          setRelativeDir('')
-        } else if (imgs.find((img) => img.path.includes(relativeDir))) {
-          setRelativeDir(relativeDir)
-        }
+    const hint = scopeHintFsPathRef.current
+    callVscode(
+      {
+        cmd: MESSAGE_CMD.GET_ALL_IMGS,
+        ...(hint ? { data: { scopeHintFsPath: hint } } : {})
+      },
+      ({ imgs, projectPath }: { imgs: RawWorkspaceImage[]; projectPath: string }) => {
+        currentProjectPath.current = projectPath
+        setLoading(false)
+        setBeforeFetch(false)
+        updateImgs(imgs)
       }
-      setLoading(false)
-      setBeforeFetch(false)
-      updateImgs(imgs)
-    })
-  }, [clickFilePath])
+    )
+  }, [])
   useEffect(refreshImgs, [refreshImgs])
 
-  const onRevealWebview = useCallback((event) => {
-    const message = event?.data
-    if (message?.cmd === BUILTIN_MESSAGE_CMD.REVEAL_WEBVIEW) {
-      const commandArgs = message.data?.commandArgs
-      const clickFilePath = commandArgs?.[0]?.path || ''
-      setClickFilePath(clickFilePath)
-      if (clickFilePath) {
-        const fileRelativePath = clickFilePath.replace(currentProjectPath.current, '')
-        const isFile = /.*\..{3,5}/.test(fileRelativePath)
-        const relativeDir = isFile ? getFileDirectory(fileRelativePath) : fileRelativePath
-        if (relativeDir === '/') {
-          setRelativeDir('')
-        } else if (imgs.find((img) => img.path.includes(relativeDir))) {
-          setRelativeDir(relativeDir)
-          setEverAutoPreview(false)
-        }
+  const onRevealWebview = useCallback(
+    (event: MessageEvent) => {
+      const message = event?.data
+      if (message?.cmd === BUILTIN_MESSAGE_CMD.REVEAL_WEBVIEW) {
+        const commandArgs = message.data?.commandArgs as unknown[] | undefined
+        const nextPath = commandArgToFsPath(commandArgs?.[0])
+        setClickFilePath(nextPath)
+        scopeHintFsPathRef.current = nextPath.length > 0 ? nextPath : null
+        setEverAutoPreview(false)
+        refreshImgs()
       }
-    }
-  }, [imgs])
+    },
+    [refreshImgs]
+  )
 
   useEffect(() => {
     window.addEventListener('message', onRevealWebview)
@@ -303,9 +329,6 @@ const PreviewImages: React.FC = () => {
 
   useEffect(() => {
     let showImgs = imgs
-    if (relativeDir) {
-      showImgs = showImgs.filter((img) => img.dirPath.indexOf(relativeDir) > -1)
-    }
     showImgs = showImgs
       .filter((img) => img.path.indexOf(keyword) > -1)
       .filter((img) => showImageTypes.includes(img.fileType))
@@ -315,7 +338,7 @@ const PreviewImages: React.FC = () => {
     setAllPaths(arr)
     const isVeryMany = showImgs.length > THRESHOLD_ALL_COLLAPSED
     setActiveKey(isVeryMany ? [] : [...arr])
-  }, [imgs, keyword, showImageTypes, relativeDir])
+  }, [imgs, keyword, showImageTypes])
 
   const onDeleteImage = useCallback((filePath: string) => {
     setImgs((prev) => prev.filter((img) => img.fullPath !== filePath))
@@ -441,6 +464,76 @@ const PreviewImages: React.FC = () => {
     return map
   }, [showImgs, imageSort, clickFilePath])
 
+  /** 1-based index within folder + folder size, keyed by `IImage.vscodePath` (for lightbox counter). */
+  const previewIndexInFolderByVscodePath = useMemo(() => {
+    const m = new Map<string, { indexInFolder: number; folderTotal: number }>()
+    for (const list of sortedImagesByDir.values()) {
+      const folderTotal = list.length
+      for (let i = 0; i < list.length; i++) {
+        m.set(list[i].vscodePath, { indexInFolder: i + 1, folderTotal })
+      }
+    }
+    return m
+  }, [sortedImagesByDir])
+
+  /**
+   * Flat list for lightbox: same folder order as the Collapse panel headers, so the last image in a folder
+   * can advance (→ / right arrow) into the first image of the next folder.
+   */
+  const globalPreviewFlat = useMemo(() => {
+    const out: IImage[] = []
+    for (const dirPath of allPaths) {
+      const list = sortedImagesByDir.get(dirPath)
+      if (list?.length) {
+        out.push(...list)
+      }
+    }
+    return out
+  }, [allPaths, sortedImagesByDir])
+
+  const globalPreviewItems = useMemo(() => globalPreviewFlat.map((i) => i.vscodePath), [globalPreviewFlat])
+
+  const globalPreviewCountRender = useCallback(
+    (current: number, total: number) => {
+      const meta = globalPreviewFlat[current - 1]
+      const name = meta?.fileName ?? ''
+      const folderMeta = meta ? previewIndexInFolderByVscodePath.get(meta.vscodePath) : undefined
+      const showFolderSlice =
+        folderMeta != null && folderMeta.folderTotal < total
+      const counterTitle =
+        folderMeta == null
+          ? `${current} of ${total} (all visible images)`
+          : showFolderSlice
+            ? `${folderMeta.indexInFolder} of ${folderMeta.folderTotal} in this folder · ${current} of ${total} all visible`
+            : `${current} of ${total} (this folder · all visible)`
+      return (
+        <div className='iv-image-preview-progress'>
+          {name ? (
+            <span className='iv-image-preview-filename' title={name}>
+              {name}
+            </span>
+          ) : null}
+          <bdi className='iv-image-preview-counter' title={counterTitle}>
+            {showFolderSlice ? (
+              <>
+                <span className='iv-image-preview-counter-folder'>
+                  {folderMeta.indexInFolder} / {folderMeta.folderTotal}
+                </span>
+                <span className='iv-image-preview-counter-sep' aria-hidden='true'>
+                  {' · '}
+                </span>
+              </>
+            ) : null}
+            <span className='iv-image-preview-counter-global'>
+              {current} / {total}
+            </span>
+          </bdi>
+        </div>
+      )
+    },
+    [globalPreviewFlat, previewIndexInFolderByVscodePath]
+  )
+
   /** One `setActiveKey` (no Spin overlay). rAF so the click frame stays light before the big commit. */
   const handleExpandAllFolders = useCallback(() => {
     const keys = [...allPaths]
@@ -482,13 +575,14 @@ const PreviewImages: React.FC = () => {
         setLayoutSliderPos(snapped)
         needWidthBasedColumnsRef.current = false
       }
-      setShowImageTypes(data.showImageTypes)
+      setShowImageTypes(normalizeConfiguredImageTypes(data.showImageTypes ?? []))
       setKeyword(data.keyword)
       setActiveKey(data.activeKey)
       setIncludeFolders(data.includeFolders)
       setExcludeFolders(data.excludeFolders)
       setUiThemePreference(data.uiTheme ?? 'follow')
       setImageSort(data.imageSort ?? 'nameAsc')
+      setHostUiLanguage(typeof data.hostUiLanguage === 'string' ? data.hostUiLanguage : undefined)
       configHydratedRef.current = true
     })
   }, [setUiThemePreference])
@@ -553,28 +647,10 @@ const PreviewImages: React.FC = () => {
       <>
       <div className='iv-preview-root'>
       <Spin spinning={loading}>
-        {showAnnouncement && (
-          <div
-            className='iv-preview-announcement'
-            style={{
-              marginBottom: 8,
-              padding: '12px 16px',
-              background: 'var(--vscode-inputValidation-infoBackground)',
-              border: '1px solid var(--vscode-inputValidation-infoBorder)',
-              borderRadius: 4,
-              color: 'var(--vscode-inputValidation-infoForeground)'
-            }}
-          >
-            <span style={{ float: 'right', cursor: 'pointer' }} onClick={() => setShowAnnouncement(false)}>×</span>
-            <div>
-              New features: ① Individual project settings are now stored in local files. ② Search now has options to include or exclude specific folders. &nbsp;&nbsp;
-              <a href='https://github.com/ZhangJian1713/vscode-image-viewer/issues' target='_blank' rel="noreferrer" style={{ color: 'var(--vscode-textLink-foreground)' }}>Report issues</a>
-            </div>
-          </div>
-        )}
+        <AnnouncementBar hostUiLanguage={hostUiLanguage} />
         <StyledPreviewImages
           style={{
-            padding: showAnnouncement ? '10px 20px 20px 20px' : '20px'
+            padding: '10px 20px 20px 20px'
           }}
         >
           <StyleTopRows>
@@ -587,13 +663,13 @@ const PreviewImages: React.FC = () => {
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
             />
+            <StyledReloadOutlined onClick={refreshImgs} />
             <StyledSettingOutlined onClick={handleClickSettings} />
             <Tooltip title={themeToggleTitle(uiThemePreference)}>
               <StyledThemeToggle onClick={handleCycleUiTheme} role='button' aria-label='Toggle UI theme'>
                 {themeToggleIcon(uiThemePreference)}
               </StyledThemeToggle>
             </Tooltip>
-            <StyledReloadOutlined onClick={refreshImgs} />
           </StyleTopRows>
           {/* Type */}
           <StyleTopRows style={{ marginBottom: '2px' }}>
@@ -677,55 +753,56 @@ const PreviewImages: React.FC = () => {
               </Space>
             </StyledBetweenWrapper>
           </StyleTopRows>
-          {relativeDir && (
-            <StyleTopRows>
-              <Tag closable onClose={() => setRelativeDir('')}>
-                Search in: {formatRelativeDirDisplay(relativeDir)}
-              </Tag>
-            </StyleTopRows>
-          )}
           <StyleMainScrollSlot>
             <StyledImgsContainer ref={setScrollContainerRef} onScroll={onImageListScroll}>
               {allPaths.length === 0 ? (
                 customizeRenderEmpty()
               ) : (
                 <ThumbLoadBudgetProvider scrollRootRef={ref} ioGeneration={thumbIoGen} gridColumns={imageGridColumns}>
-                <Collapse activeKey={activeKey} onChange={handleChangeActiveKey}>
-                  {allPaths.map((path) => {
-                    const imgsInPanel = sortedImagesByDir.get(path) ?? []
-                    const panelOpen = activeKey.includes(path)
-                    return (
-                      <Collapse.Panel
-                        header={
-                          <span>
-                            {formatRelativeDirDisplay(path)}
-                            <StyledPicCount>({imgsInPanel.length})</StyledPicCount>
-                            <StyledFolderOpenTwoTone>
-                              <FolderOpenTwoTone twoToneColor='#f4d057' onClick={(e) => handleClickOpenFolder(e, path)} />
-                            </StyledFolderOpenTwoTone>
-                          </span>
-                        }
-                        key={path}
-                      >
-                        {panelOpen ? (
-                          <VirtualFolderImageGrid
-                            scrollTick={listScrollTick}
-                            scrollRootRef={ref}
-                            listInnerWidth={layoutWidthForSizing}
-                            columns={imageGridColumns}
-                            imgs={imgsInPanel}
-                            backgroundColor={backgroundColor}
-                            enableLazyLoad={enableLazyLoad}
-                            everAutoPreview={everAutoPreview}
-                            clickFilePath={clickFilePath}
-                            onAutoPreview={onAutoPreview}
-                            onDeleteImage={onDeleteImage}
-                          />
-                        ) : null}
-                      </Collapse.Panel>
-                    )
-                  })}
-                </Collapse>
+                  <Image.PreviewGroup
+                    items={globalPreviewItems}
+                    preview={{ scaleStep: 3, countRender: globalPreviewCountRender }}
+                  >
+                    <Collapse activeKey={activeKey} onChange={handleChangeActiveKey}>
+                      {allPaths.map((path) => {
+                        const imgsInPanel = sortedImagesByDir.get(path) ?? []
+                        const panelOpen = activeKey.includes(path)
+                        return (
+                          <Collapse.Panel
+                            header={
+                              <span>
+                                {formatRelativeDirDisplay(path)}
+                                <StyledPicCount>({imgsInPanel.length})</StyledPicCount>
+                                <StyledFolderOpenTwoTone>
+                                  <FolderOpenTwoTone
+                                    twoToneColor='#f4d057'
+                                    onClick={(e) => handleClickOpenFolder(e, path)}
+                                  />
+                                </StyledFolderOpenTwoTone>
+                              </span>
+                            }
+                            key={path}
+                          >
+                            {panelOpen ? (
+                              <VirtualFolderImageGrid
+                                scrollTick={listScrollTick}
+                                scrollRootRef={ref}
+                                listInnerWidth={layoutWidthForSizing}
+                                columns={imageGridColumns}
+                                imgs={imgsInPanel}
+                                backgroundColor={backgroundColor}
+                                enableLazyLoad={enableLazyLoad}
+                                everAutoPreview={everAutoPreview}
+                                clickFilePath={clickFilePath}
+                                onAutoPreview={onAutoPreview}
+                                onDeleteImage={onDeleteImage}
+                              />
+                            ) : null}
+                          </Collapse.Panel>
+                        )
+                      })}
+                    </Collapse>
+                  </Image.PreviewGroup>
                 </ThumbLoadBudgetProvider>
               )}
             </StyledImgsContainer>

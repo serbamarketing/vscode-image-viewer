@@ -23,4 +23,8 @@ export interface IConfig {
   excludeFolders: string[],
   uiTheme?: WebviewUiThemePreference,
   imageSort?: ImageSortMode,
+  /**
+   * 仅扩展在 `GET_CONFIG` 应答中注入（`vscode.env.language`），不写本地配置文件。
+   */
+  hostUiLanguage?: string,
 }

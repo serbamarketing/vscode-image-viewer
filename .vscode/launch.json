@@ -1,8 +1,9 @@
 // A launch configuration that compiles the extension and then opens it inside a new window.
 //
-// preLaunchTask "Watch Extension" (tasks.json): yarn watch + yarn ui-watch — extension → dist/,
-// webview → distWebview/ via scaffold/webview.webpack.js. The extension loads the webview from
-// disk, not from a dev server URL.
+// preLaunchTask "Watch Extension": yarn watch + yarn ui-watch (background). If you see
+// "command … not found" after yarn install, use "Run Extension (build first)" once, or run
+// `yarn ui-build && yarn compile` in a terminal before F5.
+// Outputs: extension → dist/, webview → distWebview/.
 //
 // Browser-only / HMR: run `yarn ui-dev` in another terminal (webpack-dev-server; this template
 // uses port 5000 by default). On http origins, @easy_vscode/webview does not call acquireVsCodeApi;
@@ -19,6 +20,14 @@
       "args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "preLaunchTask": "Watch Extension"
+    },
+    {
+      "name": "Run Extension (build first)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "Build Extension & Webview"
     }
   ]
 }

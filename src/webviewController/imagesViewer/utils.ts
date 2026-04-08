@@ -8,6 +8,11 @@ import { readLocalConfigFile } from './config'
 export const SUPPORT_IMG_TYPES = ['.svg', '.png', '.jpeg', '.jpg', '.ico', '.gif', '.webp', '.bmp', '.tif', '.tiff', '.apng', '.avif']
 const { getProjectPath } = utils
 
+/** macOS AppleDouble sidecar files on exFAT/USB（如 ._085.jpg）；按扩展名像图片但并非位图。 */
+function isAppleDoubleSidecarFile(absPath: string): boolean {
+  return path.basename(absPath).startsWith('._')
+}
+
 
 
 interface IImage {
@@ -34,7 +39,14 @@ const removeFirstSlash = (path: string) => path.startsWith('/') ? path.slice(1) 
  */
 const removeSlash = (path: string) => removeLastSlash(removeFirstSlash(path))
 
-function searchImgs(basePath: string, includeFolders: string[], excludeFolders: string[], webview: Webview) {
+function searchImgs(
+  basePath: string,
+  includeFolders: string[],
+  excludeFolders: string[],
+  webview: Webview,
+  /** 非空时只递归该目录（及子目录），并忽略 `includeFolders`（用于资源管理器右键目录）。 */
+  listScopeAbsPath: string | null
+) {
   // const imgs: any = new Map<string, IImage>()
   const imgs: IImage[] = []
   const searchedFolders = new Set<string>()
@@ -56,7 +68,8 @@ function searchImgs(basePath: string, includeFolders: string[], excludeFolders: 
           dfs(pathname + '/' + file, callback)
         })
       } else if (stats.isFile()) {
-        if (SUPPORT_IMG_TYPES.includes(path.extname(pathname))) {
+        const extLower = path.extname(pathname).toLowerCase()
+        if (!isAppleDoubleSidecarFile(pathname) && SUPPORT_IMG_TYPES.includes(extLower)) {
           callback && callback(pathname)
         }
       }
@@ -64,7 +77,12 @@ function searchImgs(basePath: string, includeFolders: string[], excludeFolders: 
       console.log(e)
     }
   }
-  const searchFolders = includeFolders.length > 0 ? includeFolders.map(folder => basePath + '/' + removeSlash(folder)) : [basePath]
+  const searchFolders =
+    listScopeAbsPath != null
+      ? [path.normalize(listScopeAbsPath)]
+      : includeFolders.length > 0
+        ? includeFolders.map((folder) => basePath + '/' + removeSlash(folder))
+        : [basePath]
   searchFolders.forEach((folder) => {
     dfs(folder, (filePath: string) => {
       const st = fs.statSync(filePath)
@@ -86,13 +104,14 @@ function searchImgs(basePath: string, includeFolders: string[], excludeFolders: 
 
 /**
  * get all imgs
+ * @param listScopeAbsPath 仅列此目录树；为 null 时按配置的 `includeFolders` 或整库搜索。
  */
-export const getAllImgs = (webview: Webview) => {
+export const getAllImgs = (webview: Webview, listScopeAbsPath: string | null = null) => {
   const config = readLocalConfigFile()
   const { includeFolders, excludeFolders } = config
   const basePath = getProjectPath()
   const beginTime = new Date()
-  const imgs = searchImgs(basePath, includeFolders, excludeFolders, webview)
+  const imgs = searchImgs(basePath, includeFolders, excludeFolders, webview, listScopeAbsPath)
   const endTime = new Date()
   console.log(`${imgs.length} images found in ${(endTime.getTime() - beginTime.getTime())}ms`)
   return imgs
@@ -100,7 +119,7 @@ export const getAllImgs = (webview: Webview) => {
 
 export const getImageBase64 = (filePath: string): string => {
   const bitmap = fs.readFileSync(filePath)
-  let imgType = filePath.substring(filePath.lastIndexOf('.') + 1)
+  let imgType = filePath.substring(filePath.lastIndexOf('.') + 1).toLowerCase()
   const map = {
     svg: 'svg+xml',
     tif: 'tiff'
