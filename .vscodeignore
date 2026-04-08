@@ -18,3 +18,8 @@ contribute.md
 webpack.extension.js
 scaffold/**
 projectsConfig/**
+ai-*/
+benchmark-out/
+TestPics/
+docs/
+scripts/
