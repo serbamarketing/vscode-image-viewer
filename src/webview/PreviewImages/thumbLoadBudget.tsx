@@ -2,10 +2,21 @@
  * Thumbnail memory budget for large galleries: weighted retention scores, LRU tie-break,
  * staggered reveal, and React context wiring. See `docs/webview-image-viewer-design.md`.
  */
-import React, { createContext, useContext, useMemo } from 'react'
+import React, { createContext, useContext, useLayoutEffect, useMemo, useRef } from 'react'
 
-/** Max entries in {@link ThumbRegistry} (decoded thumbnail slots), not max images in the list. */
-export const THUMB_LOAD_MAX = 300
+/**
+ * 缩略持有上限随列数放大（高列数下一屏格子数 ≫ 旧常量 300，否则会 LRU 掉仍可见单元 → 长期 Spin）。
+ */
+export function computeThumbLoadMaxColumns(cols: number): number {
+  const c = Math.max(1, Math.round(Number(cols) || 1))
+  return Math.min(8000, Math.max(400, c * 48))
+}
+
+/** 与列数相关的 reveal 吞吐：高列数下一帧多放行若干格，避免队列积压过久。 */
+export function computeThumbRevealPerFrame(cols: number): number {
+  const c = Math.max(1, Math.round(Number(cols) || 1))
+  return Math.max(8, Math.min(40, Math.ceil(c / 2)))
+}
 
 /** Higher score = keep longer when evicting; combines visibility band + first-screen boost. */
 const SCORE_VISIBLE = 1_000_000
@@ -18,11 +29,21 @@ const SCORE_FIRST_SCREEN_BONUS = 130_000
 type RegistryEntry = { score: number; lastTouch: number }
 
 /**
- * Tracks up to {@link THUMB_LOAD_MAX} paths. Eviction: lowest `score` first, then oldest `lastTouch` (LRU).
+ * Tracks up to `maxEntries` paths. Eviction: lowest `score` first, then oldest `lastTouch` (LRU).
  */
 export class ThumbRegistry {
+  private maxEntries: number
   private readonly entries = new Map<string, RegistryEntry>()
   private readonly listeners = new Map<string, Set<(held: boolean) => void>>()
+
+  constructor(maxEntries: number = 400) {
+    this.maxEntries = Math.max(1, maxEntries)
+  }
+
+  setMaxEntries(n: number): void {
+    this.maxEntries = Math.max(1, Math.min(8000, n))
+    this.evictDownToCap(undefined)
+  }
 
   subscribe(path: string, listener: (held: boolean) => void): () => void {
     let set = this.listeners.get(path)
@@ -79,7 +100,7 @@ export class ThumbRegistry {
   }
 
   private evictDownToCap(lastAdded?: string): void {
-    while (this.entries.size > THUMB_LOAD_MAX) {
+    while (this.entries.size > this.maxEntries) {
       const v = this.pickEvictionVictim(lastAdded)
       if (!v) {
         break
@@ -107,10 +128,14 @@ export class ThumbRegistry {
 export class RevealScheduler {
   private readonly queue: { path: string; pri: number; cb: () => void }[] = []
   private raf = 0
-  private readonly perFrame: number
+  private perFrame: number
 
-  constructor(perFrame: number = 6) {
+  constructor(perFrame: number = 8) {
     this.perFrame = perFrame
+  }
+
+  setPerFrame(n: number): void {
+    this.perFrame = Math.max(1, n)
   }
 
   request(path: string, pri: number, cb: () => void): void {
@@ -191,6 +216,7 @@ type ThumbLoadBudgetContextValue = {
   ioGeneration: number
   registry: ThumbRegistry
   reveal: RevealScheduler
+  gridColumns: number
 }
 
 const ThumbLoadBudgetContext = createContext<ThumbLoadBudgetContextValue | null>(null)
@@ -198,17 +224,39 @@ const ThumbLoadBudgetContext = createContext<ThumbLoadBudgetContextValue | null>
 export function ThumbLoadBudgetProvider({
   children,
   scrollRootRef,
-  ioGeneration
+  ioGeneration,
+  gridColumns
 }: {
   children: React.ReactNode
   scrollRootRef: React.RefObject<HTMLElement | null>
   ioGeneration: number
+  /** 当前图片网格列数（用于持有上限与 reveal 帧配额）。 */
+  gridColumns: number
 }): React.ReactElement {
-  const registry = useMemo(() => new ThumbRegistry(), [])
-  const reveal = useMemo(() => new RevealScheduler(6), [])
+  const loadCap = useMemo(() => computeThumbLoadMaxColumns(gridColumns), [gridColumns])
+  const perFrame = useMemo(() => computeThumbRevealPerFrame(gridColumns), [gridColumns])
+  const registryRef = useRef<ThumbRegistry | null>(null)
+  if (registryRef.current === null) {
+    registryRef.current = new ThumbRegistry(loadCap)
+  }
+  const registry = registryRef.current
+  const revealRef = useRef<RevealScheduler | null>(null)
+  if (revealRef.current === null) {
+    revealRef.current = new RevealScheduler(perFrame)
+  }
+  const reveal = revealRef.current
+
+  useLayoutEffect(() => {
+    registry.setMaxEntries(loadCap)
+  }, [registry, loadCap])
+
+  useLayoutEffect(() => {
+    reveal.setPerFrame(perFrame)
+  }, [reveal, perFrame])
+
   const value = useMemo(
-    () => ({ scrollRootRef, ioGeneration, registry, reveal }),
-    [scrollRootRef, ioGeneration, registry, reveal]
+    () => ({ scrollRootRef, ioGeneration, registry, reveal, gridColumns }),
+    [scrollRootRef, ioGeneration, registry, reveal, gridColumns]
   )
   return <ThumbLoadBudgetContext.Provider value={value}>{children}</ThumbLoadBudgetContext.Provider>
 }

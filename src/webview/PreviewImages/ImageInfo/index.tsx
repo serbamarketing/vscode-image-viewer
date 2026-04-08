@@ -24,10 +24,15 @@ const dropdownGetPopupContainer = () => document.body
 type ImageInfoProps = {
   img: IImage
   onDeleteImage: (fullPath: string) => void
+  /** 密集网格（列数多）为 false 时不渲染文件名行。 */
+  showFileName?: boolean
 }
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
-const ImageInfo: React.FC<ImageInfoProps> = ({ img, onDeleteImage }) => {
+const ImageInfo: React.FC<ImageInfoProps> = ({ img, onDeleteImage, showFileName = true }) => {
+  if (!showFileName) {
+    return null
+  }
   const showCopySuccess = useCallback((copyText: string, showMsg: boolean = true) => {
     navigator.clipboard
       .writeText(copyText)

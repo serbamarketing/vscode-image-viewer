@@ -1,7 +1,7 @@
 /**
  * 网格缩略图常量（解码档位、缓存上限、清理策略等）。
  *
- * 实际解码长边由 Webview 按列宽传入档位（400 / 800 / 1600），见 `thumbDecodeMaxEdgeFromCellWidth`。
+ * 实际解码长边由 Webview 按列宽传入档位（100 / 200 / 400 / 800 / 1600），见 `thumbDecodeMaxEdgeFromCellWidth`。
  * 缓存在 `globalStorageUri` 子目录 `GRID_THUMB_GLOBAL_SUBDIR`。
  *
  * 预览大图仍用原图 `vscodePath`。
@@ -16,51 +16,58 @@ export const GRID_THUMB_GLOBAL_SUBDIR = 'image-viewer-grid-thumbs' as const
  */
 export const GRID_THUMB_CACHE_FILENAME_HASH_HEX_CHARS = 16
 
-/** 缩略解码档位（与 Webview 格子宽度策略一致）。 */
-export const THUMB_DECODE_EDGE_TIER_1 = 400
-export const THUMB_DECODE_EDGE_TIER_2 = 800
-export const THUMB_DECODE_EDGE_TIER_3 = 1600
+/**
+ * 缩略长边档位（升序）；与 `thumbDecodeMaxEdgeFromCellWidth` 的 `cellW &lt; tier` 分支一一对应，末档为上限。
+ */
+export const THUMB_DECODE_EDGE_TIERS = [100, 200, 400, 800, 1600] as const
 
-/** 回落默认档位（旧消息无 `targetMaxEdgePx` 时）。 */
-export const GRID_THUMB_FALLBACK_TARGET_EDGE_PX = THUMB_DECODE_EDGE_TIER_1
+export type ThumbDecodeMaxEdgePx = (typeof THUMB_DECODE_EDGE_TIERS)[number]
+
+/** 回落默认档位（旧消息无 `targetMaxEdgePx` 时）：最小档。 */
+export const GRID_THUMB_FALLBACK_TARGET_EDGE_PX: ThumbDecodeMaxEdgePx = THUMB_DECODE_EDGE_TIERS[0]
 
 /**
- * 将请求值规范化到 400 / 800 / 1600。
+ * 将请求值规范化到 {@link THUMB_DECODE_EDGE_TIERS} 之一（向上对齐到不小于请求的最小档）。
  */
-export function normalizeThumbTierEdge(n: number): number {
+export function normalizeThumbTierEdge(n: number): ThumbDecodeMaxEdgePx {
   const t = Math.round(Number(n))
   if (!Number.isFinite(t) || t <= 0) {
     return GRID_THUMB_FALLBACK_TARGET_EDGE_PX
   }
-  if (t <= THUMB_DECODE_EDGE_TIER_1) {
-    return THUMB_DECODE_EDGE_TIER_1
+  for (const tier of THUMB_DECODE_EDGE_TIERS) {
+    if (t <= tier) {
+      return tier
+    }
   }
-  if (t <= THUMB_DECODE_EDGE_TIER_2) {
-    return THUMB_DECODE_EDGE_TIER_2
-  }
-  return THUMB_DECODE_EDGE_TIER_3
+  return THUMB_DECODE_EDGE_TIERS[THUMB_DECODE_EDGE_TIERS.length - 1]
 }
 
 /**
  * 由单个正方形格子的 CSS 宽度（像素）选择解码长边档位：
- * `cellW` &lt; 400 → 400；&lt; 800 → 800；否则 1600。
+ * `cellW` &lt; 100 → 100；&lt; 200 → 200；&lt; 400 → 400；&lt; 800 → 800；否则 1600。
  */
-export function thumbDecodeMaxEdgeFromCellWidth(cellWidthPx: number): number {
+export function thumbDecodeMaxEdgeFromCellWidth(cellWidthPx: number): ThumbDecodeMaxEdgePx {
   if (!Number.isFinite(cellWidthPx) || cellWidthPx <= 0) {
-    return THUMB_DECODE_EDGE_TIER_1
+    return GRID_THUMB_FALLBACK_TARGET_EDGE_PX
   }
-  if (cellWidthPx < THUMB_DECODE_EDGE_TIER_1) {
-    return THUMB_DECODE_EDGE_TIER_1
+  for (const tier of THUMB_DECODE_EDGE_TIERS) {
+    if (cellWidthPx < tier) {
+      return tier
+    }
   }
-  if (cellWidthPx < THUMB_DECODE_EDGE_TIER_2) {
-    return THUMB_DECODE_EDGE_TIER_2
-  }
-  return THUMB_DECODE_EDGE_TIER_3
+  return THUMB_DECODE_EDGE_TIERS[THUMB_DECODE_EDGE_TIERS.length - 1]
 }
 
 /**
+ * macOS 栅格缩略主路径：`/usr/bin/sips -Z`（长边上限）与 `format jpeg` / `formatOptions`（百分质量，见 {@link GRID_THUMB_JPEG_QUALITY}），
+ * 长边像素与 `thumbGridCache` 内 `decodeBoxEdgeClampedToOriginal`（`image-size` + 档位封顶）一致，对齐原 Jimp `scaleToFit(box,box)`。
+ * 失败时回退 Jimp / WebP WASM。
+ */
+export const GRID_THUMB_MACOS_USE_SIPS = true
+
+/**
  * macOS `qlmanage -s` 的中间图边长**下限**（与当前档位取较大者，再与 `GRID_THUMB_MACOS_QL_CAP_PX` 取较小者）。
- * 避免极小档位时 `-s` 过小导致 QL 出图过糊；命名为 MIN 而非 MAX，请勿与「缩略目标最大边」混淆。
+ * 仅在 {@link GRID_THUMB_MACOS_USE_QUICKLOOK} 为 true 时使用。
  */
 export const GRID_THUMB_MACOS_QUICKLOOK_MIN_EDGE_PX = 384
 
@@ -78,8 +85,8 @@ export function gridThumbMacQlIntermediatePx(tierMaxEdge: number): number {
   )
 }
 
-/** macOS 是否优先 Quick Look（失败则 Jimp / WebP WASM）。 */
-export const GRID_THUMB_MACOS_USE_QUICKLOOK = true
+/** macOS 是否使用 Quick Look + Jimp（`qlmanage` → PNG → Jimp）。默认关闭，主路径为 {@link GRID_THUMB_MACOS_USE_SIPS}。 */
+export const GRID_THUMB_MACOS_USE_QUICKLOOK = false
 
 /**
  * [试验] macOS：缩略只走 `qlmanage -t`（系统输出 PNG；官方 CLI 无 JPEG 格式选项）。
@@ -133,21 +140,40 @@ export function gridThumbDiskCacheExtension(): 'jpg' | 'png' {
 }
 
 /**
- * 影响磁盘缩略内容的指纹；`tier` 为 400/800/1600；`qls` 为 QL 中间边长或 raw 模式下 `cap`。
+ * 影响磁盘缩略内容的指纹；`tier` 为 100/200/400/800/1600；`aux` 在不同 pipe 下含义不同（QL 中间边 / sips 标记等）。
  */
 export function gridThumbCacheProfile(targetTierEdge: number): string {
   const tier = normalizeThumbTierEdge(targetTierEdge)
+  const macSips = process.platform === 'darwin' && GRID_THUMB_MACOS_USE_SIPS
   const macQl = process.platform === 'darwin' && GRID_THUMB_MACOS_USE_QUICKLOOK
   const rawPng = macQl && GRID_THUMB_MACOS_QUICKLOOK_RAW_PNG
-  const pipeline = macQl ? (rawPng ? 'mac-ql-raw' : 'mac-ql') : 'jimp'
-  const qls = rawPng ? 'cap' : String(gridThumbMacQlIntermediatePx(tier))
+  let pipeline: string
+  if (rawPng) {
+    pipeline = 'mac-ql-raw'
+  } else if (macSips) {
+    pipeline = 'mac-sips'
+  } else if (macQl) {
+    pipeline = 'mac-ql'
+  } else {
+    pipeline = 'jimp'
+  }
+  let aux: string
+  if (rawPng) {
+    aux = 'cap'
+  } else if (macSips) {
+    aux = `Z+q${GRID_THUMB_JPEG_QUALITY}`
+  } else if (macQl) {
+    aux = String(gridThumbMacQlIntermediatePx(tier))
+  } else {
+    aux = '0'
+  }
   const q = rawPng ? 'raw-png' : String(GRID_THUMB_JPEG_QUALITY)
   return [
     `v=${GRID_THUMB_CACHE_VERSION}`,
     `pipe=${pipeline}`,
     `tier=${tier}`,
     `q=${q}`,
-    `qls=${qls}`,
+    `aux=${aux}`,
     `capO=1`
   ].join('|')
 }

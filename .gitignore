@@ -11,3 +11,6 @@ nodejs/
 github-issues
 ai-*/
 benchmark-out/
+TestPics/
+docs/
+scripts/

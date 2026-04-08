@@ -1,4 +1,4 @@
-/** 网格缩略图：globalStorage 中小光栅文件（多数为 JPEG；macOS 试验「仅 QL」时为 PNG）+ `asWebviewUri`。 */
+/** 网格缩略图：globalStorage 中小 JPEG（macOS 主路径为 `sips`；「仅 QL」试验可为 PNG）+ `asWebviewUri`。 */
 /* eslint-disable @typescript-eslint/no-var-requires */
 import { execFile } from 'child_process'
 import { createHash } from 'crypto'
@@ -15,6 +15,7 @@ import {
   GRID_THUMB_JANITOR_TARGET_RATIO,
   GRID_THUMB_JPEG_DECODE_MAX_MEMORY_MB,
   GRID_THUMB_JPEG_QUALITY,
+  GRID_THUMB_MACOS_USE_SIPS,
   GRID_THUMB_MACOS_USE_QUICKLOOK,
   GRID_THUMB_MACOS_QUICKLOOK_RAW_PNG,
   GRID_THUMB_MAX_CACHE_BYTES,
@@ -33,6 +34,7 @@ import {
 const execFileAsync = promisify(execFile)
 
 const MACOS_QLMANAGE = '/usr/bin/qlmanage'
+const MACOS_SIPS = '/usr/bin/sips'
 
 const RASTER_EXT = new Set<string>(GRID_THUMB_RASTER_EXTENSIONS)
 
@@ -276,6 +278,52 @@ async function rasterToJpegBuffer(absPath: string, tierEdge: number): Promise<Bu
   return img.quality(GRID_THUMB_JPEG_QUALITY).getBufferAsync(Jimp.MIME_JPEG)
 }
 
+async function macosSipsToJpegBuffer(absPath: string, tierEdge: number): Promise<Buffer | null> {
+  if (process.platform !== 'darwin' || !GRID_THUMB_MACOS_USE_SIPS) {
+    return null
+  }
+  if (!fs.existsSync(MACOS_SIPS)) {
+    return null
+  }
+  const box = decodeBoxEdgeClampedToOriginal(absPath, tierEdge)
+  if (!Number.isFinite(box) || box <= 0) {
+    return null
+  }
+  const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'iv-grid-sips-'))
+  const outJpg = path.join(tmpDir, 'thumb.jpg')
+  try {
+    await execFileAsync(
+      MACOS_SIPS,
+      [
+        '-Z',
+        String(Math.round(box)),
+        '-s',
+        'format',
+        'jpeg',
+        '-s',
+        'formatOptions',
+        String(GRID_THUMB_JPEG_QUALITY),
+        '-o',
+        outJpg,
+        absPath
+      ],
+      {
+        timeout: 25_000,
+        maxBuffer: 32 * 1024 * 1024
+      }
+    )
+    if (!fs.existsSync(outJpg)) {
+      return null
+    }
+    const buf = await fs.promises.readFile(outJpg)
+    return buf.length > 0 ? buf : null
+  } catch {
+    return null
+  } finally {
+    await fs.promises.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
 async function macosQlmanageThumbnailPng(absPath: string, sizePx: number): Promise<Buffer | null> {
   if (process.platform !== 'darwin') {
     return null
@@ -391,6 +439,11 @@ async function rasterToJpegBufferByPath(absPath: string, tierEdge: number): Prom
     const box = decodeBoxEdgeClampedToOriginal(absPath, tierEdge)
     const pngBuf = await macosQlmanageThumbnailPng(absPath, box)
     return pngBuf && pngBuf.length > 0 ? pngBuf : null
+  }
+
+  const sipsBuf = await macosSipsToJpegBuffer(absPath, tierEdge)
+  if (sipsBuf && sipsBuf.length > 0) {
+    return sipsBuf
   }
 
   const macBuf = await macosQuickLookToJpegBuffer(absPath, tierEdge)

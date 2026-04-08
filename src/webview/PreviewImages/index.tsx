@@ -689,7 +689,7 @@ const PreviewImages: React.FC = () => {
               {allPaths.length === 0 ? (
                 customizeRenderEmpty()
               ) : (
-                <ThumbLoadBudgetProvider scrollRootRef={ref} ioGeneration={thumbIoGen}>
+                <ThumbLoadBudgetProvider scrollRootRef={ref} ioGeneration={thumbIoGen} gridColumns={imageGridColumns}>
                 <Collapse activeKey={activeKey} onChange={handleChangeActiveKey}>
                   {allPaths.map((path) => {
                     const imgsInPanel = sortedImagesByDir.get(path) ?? []

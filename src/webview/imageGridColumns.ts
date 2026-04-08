@@ -4,6 +4,9 @@ import type { SliderSingleProps } from 'antd/es/slider'
 export const IMAGE_GRID_COL_MIN = 1
 export const IMAGE_GRID_COL_MAX = 50
 
+/** 列数大于此值时网格不显示文件名（密集预览）。 */
+export const IMAGE_GRID_SHOW_FILENAME_MAX_COLS = 30
+
 /**
  * Inner list width (same units as `gridInnerWidth` in PreviewImages) before measurement.
  * Matches initial `fallbackLayoutWidthRef`.

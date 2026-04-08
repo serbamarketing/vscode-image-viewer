@@ -5,13 +5,13 @@ import { Image } from 'antd'
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { IImage } from './imageTypes'
 import { thumbDecodeMaxEdgeFromCellWidth } from '../../config/gridThumb'
-import { IMAGE_TILE_GAP, gridSquareCellWidthPx } from '../imageGridColumns'
+import { IMAGE_GRID_SHOW_FILENAME_MAX_COLS, IMAGE_TILE_GAP, gridSquareCellWidthPx } from '../imageGridColumns'
 import ImageInfo from './ImageInfo'
 import ImageLazyLoad from './ImageLazyLoad'
 import { StyleImage, StyleImageList } from './style'
 
-/** Text block under square thumb (ImageInfo margin + line-clamp × line-height). */
-const CAPTION_BELOW_PX = 52
+/** Text block under square thumb (ImageInfo margin + line-clamp × line-height)。列数过大时为 0。 */
+const CAPTION_BELOW_PX_FULL = 52
 /** Extra rows above/below viewport. */
 const ROW_OVERSCAN = 2
 /** Below this count, render a flat map (same DOM as before virtualizer existed). */
@@ -57,8 +57,10 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
   const gap = IMAGE_TILE_GAP
   const cellW = gridSquareCellWidthPx(listInnerWidth, cols)
   const thumbTargetMaxEdgePx = useMemo(() => thumbDecodeMaxEdgeFromCellWidth(cellW), [cellW])
+  const showFileCaption = cols <= IMAGE_GRID_SHOW_FILENAME_MAX_COLS
+  const captionBelowPx = showFileCaption ? CAPTION_BELOW_PX_FULL : 0
   /** One row: thumb square + caption; gap between rows is `IMAGE_TILE_GAP` (same as StyleImageList). */
-  const rowBody = cellW + CAPTION_BELOW_PX
+  const rowBody = cellW + captionBelowPx
   const rowStride = rowBody + gap
   const rowCount = Math.max(0, Math.ceil(imgs.length / cols))
   const totalHeight = rowCount > 0 ? rowCount * rowBody + Math.max(0, rowCount - 1) * gap : 0
@@ -165,7 +167,7 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
                 imageGridColumns={cols}
                 thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
               />
-              <ImageInfo img={img} onDeleteImage={onDeleteImage} />
+              <ImageInfo img={img} onDeleteImage={onDeleteImage} showFileName={showFileCaption} />
             </StyleImage>
           ))}
         </Image.PreviewGroup>
@@ -222,7 +224,7 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
                         imageGridColumns={cols}
                         thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
                       />
-                      <ImageInfo img={img} onDeleteImage={onDeleteImage} />
+                      <ImageInfo img={img} onDeleteImage={onDeleteImage} showFileName={showFileCaption} />
                     </StyleImage>
                   )
                 })}
