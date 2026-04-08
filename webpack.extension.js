@@ -20,7 +20,9 @@ const configExtension = {
     // the bundle is stored in the 'dist' folder (check package.json), 📖 -> https://webpack.js.org/configuration/output/
     path: path.resolve(__dirname, './dist'),
     filename: 'extension.js',
-    libraryTarget: 'commonjs2'
+    libraryTarget: 'commonjs2',
+    // Drop stale artifacts (e.g. old `sql-wasm.wasm`) so `vsce package` never ships leftover files.
+    clean: true
   },
   devtool: 'nosources-source-map',
   plugins: [

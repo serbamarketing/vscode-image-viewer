@@ -2,8 +2,6 @@
 
 View and manage images in your workspace: thumbnail grid, large preview, copy Base64 / path / file name, and per-project include/exclude folders.
 
-**Requirements:** VS Code / Cursor **1.75+** (matches `engines.vscode` in `package.json`).
-
 ## Screenshots
 
 ### Main panel (grid & chrome)
@@ -21,9 +19,9 @@ View and manage images in your workspace: thumbnail grid, large preview, copy Ba
 - **Sort** images inside each folder (name, modified time, size, asc/desc).
 - **Light / dark** UI for the panel; default follows your VS Code or Cursor theme (toggle in the toolbar).
 - Preview backdrops: **checkerboard**, **transparent** (default), and solid swatches; useful for PNG/SVG with alpha.
-- Image preview shows **file name** in the lightbox; zoom and navigate with keyboard.
-- **Search** by path/name fragment; filter by **file type** via checkboxes.
-- **Include / exclude** folders (per project, stored under `projectsConfig/` in the extension’s storage).
+- Zoom and navigate with keyboard.
+- **Search** by path/name; filter by **file type**.
+- **Include / exclude** folders
 - **Copy** path, file name, or Base64 from the image menu.
 - Open a folder from Explorer: **only that folder tree** is scanned (fast in huge repos). **Multiple** Image Viewer tabs for different folders; tab title includes the folder name.
 
