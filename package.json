@@ -66,7 +66,8 @@
     "ui-watch": "webpack --config scaffold/webview.webpack.js --watch --mode development",
     "ui-build": "webpack --config scaffold/webview.webpack.js --color --mode production",
     "lint-staged": "lint-staged",
-    "check-type": "tsc --noEmit"
+    "check-type": "tsc --noEmit",
+    "bench:thumb-mac": "node scripts/benchmark-ql-vs-jimp.cjs"
   },
   "repository": {
     "type": "git",
@@ -109,6 +110,7 @@
     "clean-webpack-plugin": "^4.0.0-alpha.0",
     "connect-history-api-fallback": "^1.6.0",
     "conventional-changelog-conventionalcommits": "^4.6.0",
+    "copy-webpack-plugin": "11.0.0",
     "css-loader": "^6.2.0",
     "eslint": "^7.31.0",
     "eslint-config-standard": "^16.0.3",
@@ -159,6 +161,7 @@
     "@ant-design/icons": "^5.5.0",
     "@easy_vscode/core": "file:../easy-vscode/packages/core",
     "@easy_vscode/webview": "file:../easy-vscode/packages/webview",
+    "@jsquash/webp": "1.5.0",
     "ahooks": "^3.7.5",
     "antd": "^5.22.0",
     "axios": "^0.24.0",
@@ -166,6 +169,7 @@
     "fs-extra": "^10.0.0",
     "i18next": "^21.9.0",
     "image-size": "^1.0.2",
+    "jimp": "0.22.12",
     "json5": "^2.2.3",
     "lodash": "^4.17.21",
     "react": "^17.0.2",

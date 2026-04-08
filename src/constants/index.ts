@@ -15,6 +15,8 @@ export const MESSAGE_CMD = {
   OPEN_IMAGE_DIRECTORY: 'openImageDirectory',
   GET_IMAGE_BASE64: 'getImageBase64',
   GET_IMAGE_SIZE: 'getImageSize',
+  /** Grid-only thumbnail: disk cache in globalStorage + webview URI, or original. */
+  GET_THUMB_FOR_GRID: 'getThumbForGrid',
   SAVE_CONFIG: 'saveConfig',
   GET_CONFIG: 'getConfig',
 }

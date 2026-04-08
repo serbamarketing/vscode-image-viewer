@@ -178,6 +178,21 @@ export function approxPersistedThumbSize(innerWidth: number, columns: number): n
   return Math.max(MIN_THUMB_PX, Math.min(MAX_THUMB_PX, Math.round(cellW - 2)))
 }
 
+/**
+ * 与 `VirtualFolderImageGrid` 一致：列表内容区内单个正方形缩略格子的宽度（像素）。
+ */
+export function gridSquareCellWidthPx(listInnerWidth: number, columns: number): number {
+  const cols = clampCol(columns)
+  const rawW =
+    listInnerWidth > 0 ? listInnerWidth : Math.max(0, DEFAULT_COLUMN_LAYOUT_GUESS_PX - IMAGE_GRID_WIDTH_SAFETY)
+  const W = Math.max(0, rawW - IMAGE_GRID_WIDTH_SAFETY)
+  const gap = IMAGE_TILE_GAP
+  if (cols <= 1) {
+    return Math.max(1, W)
+  }
+  return Math.max(1, (W - (cols - 1) * gap) / cols)
+}
+
 /** 1–10 every column (track is uniform there); then every 5 up to 50. */
 const MARK_COLUMNS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50] as const
 

@@ -4,10 +4,15 @@
 
 const path = require('path');
 const webpack = require('webpack')
+const CopyWebpackPlugin = require('copy-webpack-plugin')
 
 /**@type {import('webpack').Configuration}*/
 const configExtension = {
   target: 'node', // vscode extensions run in a Node.js-context 📖 -> https://webpack.js.org/configuration/node/
+  node: {
+    __dirname: false,
+    __filename: false
+  },
   mode: 'none', // this leaves the source code as close as possible to the original (when packaging we set this to 'production')
 
   entry: './src/extension.ts', // the entry point of this extension, 📖 -> https://webpack.js.org/configuration/entry-context/
@@ -18,9 +23,13 @@ const configExtension = {
     libraryTarget: 'commonjs2'
   },
   devtool: 'nosources-source-map',
+  plugins: [
+    new CopyWebpackPlugin({
+      patterns: [{ from: 'node_modules/@jsquash/webp/codec/dec/webp_dec.wasm', to: 'wasm/webp_dec.wasm' }]
+    })
+  ],
   externals: {
-    vscode: 'commonjs vscode' // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
-    // modules added here also need to be added in the .vsceignore file
+    vscode: 'commonjs vscode'
   },
   resolve: {
     // support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader

@@ -7,7 +7,7 @@ import { useInViewport } from 'ahooks'
 import { Image, Spin } from 'antd'
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { IImage } from '..'
+import type { IImage } from '../imageTypes'
 import { MESSAGE_CMD } from '../../../constants'
 import { imageInlineBackground, thumbPadStyle } from '../../thumbSurfaceStyle'
 import {
@@ -23,6 +23,8 @@ interface IImageLazyLoadProps {
   onAutoPreview: () => void
   indexInFolder: number
   imageGridColumns: number
+  /** 扩展侧缩略解码档位：400 / 800 / 1600，随列宽变化。 */
+  thumbTargetMaxEdgePx: number
 }
 
 const CellShell = styled.div`
@@ -61,6 +63,8 @@ interface IDimensions {
   height: number
 }
 
+type GridThumbCallback = { kind: 'thumb'; thumbSrc: string } | { kind: 'original' }
+
 const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
   enableLazyLoad,
   img,
@@ -68,7 +72,8 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
   autoPreview = false,
   onAutoPreview,
   indexInFolder,
-  imageGridColumns
+  imageGridColumns,
+  thumbTargetMaxEdgePx
 }) => {
   const { scrollRootRef, ioGeneration, registry, reveal } = useThumbLoadBudget()
   const shellRef = useRef<HTMLDivElement>(null)
@@ -98,6 +103,12 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
   const [dimensions, setDimensions] = useState<IDimensions>()
   const [everAutoPreview, setEverAutoPreview] = useState(false)
   const [cellEdge, setCellEdge] = useState(0)
+  /**
+   * Grid tile: `null` = do not load original URL (wait for thumb or explicit original fallback).
+   * Preview still uses full `vscodePath` via `preview.src`.
+   */
+  const [gridDisplaySrc, setGridDisplaySrc] = useState<string | null>(null)
+  const thumbRequestKeyDone = useRef<string | null>(null)
 
   const v = inVisible === true
   const n = inNeighbor === true
@@ -204,12 +215,51 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
   const isShow = rawShow && painted
 
   useEffect(() => {
-    if (!everAutoPreview && autoPreview && isShow) {
-      setEverAutoPreview(true)
-      openPreview()
-      onAutoPreview()
+    thumbRequestKeyDone.current = null
+    setGridDisplaySrc(null)
+  }, [img.fullPath, img.vscodePath, thumbTargetMaxEdgePx])
+
+  useEffect(() => {
+    if (!isShow) {
+      return
     }
-  }, [autoPreview, isShow])
+    const reqKey = `${img.fullPath}\0${thumbTargetMaxEdgePx}`
+    if (thumbRequestKeyDone.current === reqKey) {
+      return
+    }
+    let cancelled = false
+    callVscode(
+      { cmd: MESSAGE_CMD.GET_THUMB_FOR_GRID, data: { filePath: img.fullPath, targetMaxEdgePx: thumbTargetMaxEdgePx } },
+      (r: GridThumbCallback) => {
+        if (cancelled) {
+          return
+        }
+        thumbRequestKeyDone.current = reqKey
+        if (!r) {
+          setGridDisplaySrc(img.vscodePath)
+          return
+        }
+        if (r.kind === 'thumb') {
+          setGridDisplaySrc(r.thumbSrc)
+        } else {
+          setGridDisplaySrc(img.vscodePath)
+        }
+      }
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [isShow, img.fullPath, img.fileName, img.size, img.vscodePath, enableLazyLoad, thumbTargetMaxEdgePx])
+
+  useEffect(() => {
+    if (!everAutoPreview && autoPreview && isShow && gridDisplaySrc != null) {
+      setEverAutoPreview(true)
+      requestAnimationFrame(() => {
+        openPreview()
+        onAutoPreview()
+      })
+    }
+  }, [autoPreview, everAutoPreview, isShow, gridDisplaySrc, onAutoPreview])
 
   const pad = thumbPadStyle(backgroundColor)
   const imgBg = imageInlineBackground(backgroundColor)
@@ -218,6 +268,10 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
     <CellShell ref={shellRef}>
       {!isShow ? (
         <LoadingCenter>
+          <Spin />
+        </LoadingCenter>
+      ) : gridDisplaySrc == null ? (
+        <LoadingCenter style={pad}>
           <Spin />
         </LoadingCenter>
       ) : (
@@ -235,9 +289,10 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
               objectFit: 'contain',
               backgroundColor: imgBg
             }}
-            src={img.vscodePath}
+            src={gridDisplaySrc}
             onLoad={() => setLatched(true)}
             preview={{
+              src: img.vscodePath,
               scaleStep: 3,
               mask: (
                 <div className='ant-image-mask-info' onMouseOver={handleMouseOver}>

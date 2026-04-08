@@ -4,7 +4,6 @@ import {
   Collapse,
   ConfigProvider,
   Empty,
-  Image,
   Input,
   Select,
   Skeleton,
@@ -24,7 +23,6 @@ import {
   MESSAGE_CMD
 } from '../../constants'
 import { callVscode } from '@easy_vscode/webview'
-import ImageLazyLoad from './ImageLazyLoad'
 import { ThumbLoadBudgetProvider } from './thumbLoadBudget'
 import {
   StyledBetweenWrapper,
@@ -35,14 +33,11 @@ import {
   StyledReloadOutlined,
   StyledSettingOutlined,
   StyledThemeToggle,
-  StyleImage,
-  StyleImageList,
   StyleMainScrollSlot,
   StyleRowTitle,
   StyleSquare,
   StyleTopRows
 } from './style'
-import ImageInfo from './ImageInfo'
 import { BUILTIN_MESSAGE_CMD } from '@easy_vscode/core/lib/constants'
 import { IConfig, type ImageSortMode, type WebviewUiThemePreference } from 'types'
 import SettingsModal from './SettingsModal'
@@ -61,6 +56,10 @@ import {
   sliderPosFromColumns
 } from '../imageGridColumns'
 import { IMAGE_SORT_OPTIONS, compareImagesForSort } from '../imageSort'
+import type { IImage } from './imageTypes'
+import { VirtualFolderImageGrid } from './VirtualFolderImageGrid'
+
+export type { IImage } from './imageTypes'
 
 const THRESHOLD_ALL_COLLAPSED = 1200
 const THRESHOLD_ENABLE_LAZY_LOADING = 150
@@ -85,23 +84,19 @@ function backgroundSwatchTooltip(option: string): string {
   return option
 }
 
-export interface IImage {
-  // origin properties
-  path: string
-  fullPath: string
-  vscodePath: string
-  size: number
+/** Host payload before paths and names are derived. */
+type RawWorkspaceImage = Pick<IImage, 'path' | 'vscodePath' | 'size'> & {
   mtimeMs?: number
-  // extend properties
-  fileName: string
-  fileType: string
-  dirPath: string
+  fullPath?: string
 }
 
-/** Host payload before paths and names are derived. */
-type RawWorkspaceImage = Pick<IImage, 'path' | 'vscodePath' | 'size'> & { mtimeMs?: number }
-
 const completeImgs = (imgs: RawWorkspaceImage[], projectPath: string): IImage[] => {
+  const fallbackFullPath = (rel: string) => {
+    const base = projectPath.replace(/[/\\]+$/, '')
+    const tail = rel.replace(/^[/\\]+/, '')
+    const sep = base.includes('\\') ? '\\' : '/'
+    return `${base}${sep}${tail}`
+  }
   return imgs.map((img) => {
     const filePath = img.path
     const dirPath = filePath.substring(0, filePath.lastIndexOf('/') + 1)
@@ -109,7 +104,7 @@ const completeImgs = (imgs: RawWorkspaceImage[], projectPath: string): IImage[] 
     const fileType = filePath.substring(filePath.lastIndexOf('.') + 1)
     const newImg: IImage = {
       ...img,
-      fullPath: projectPath + img.path,
+      fullPath: img.fullPath && img.fullPath.length > 0 ? img.fullPath : fallbackFullPath(img.path),
       dirPath,
       fileName,
       fileType
@@ -181,12 +176,25 @@ const PreviewImages: React.FC = () => {
 
   const ref = useRef<HTMLDivElement | null>(null)
   const [thumbIoGen, setThumbIoGen] = useState(0)
+  /** Shared signal so per-folder virtual grids recalc visible rows without N×scroll listeners. */
+  const [listScrollTick, setListScrollTick] = useState(0)
+  const listScrollRafRef = useRef<number | null>(null)
 
   const setScrollContainerRef = useCallback((el: HTMLDivElement | null) => {
     ref.current = el
     if (el) {
       setThumbIoGen((g) => g + 1)
     }
+  }, [])
+
+  const onImageListScroll = useCallback(() => {
+    if (listScrollRafRef.current != null) {
+      return
+    }
+    listScrollRafRef.current = requestAnimationFrame(() => {
+      listScrollRafRef.current = null
+      setListScrollTick((t) => t + 1)
+    })
   }, [])
 
   useLayoutEffect(() => {
@@ -677,7 +685,7 @@ const PreviewImages: React.FC = () => {
             </StyleTopRows>
           )}
           <StyleMainScrollSlot>
-            <StyledImgsContainer ref={setScrollContainerRef}>
+            <StyledImgsContainer ref={setScrollContainerRef} onScroll={onImageListScroll}>
               {allPaths.length === 0 ? (
                 customizeRenderEmpty()
               ) : (
@@ -700,47 +708,19 @@ const PreviewImages: React.FC = () => {
                         key={path}
                       >
                         {panelOpen ? (
-                          <StyleImageList
-                            style={
-                              { ['--iv-grid-cols']: String(imageGridColumns) } as React.CSSProperties
-                            }
-                          >
-                            <Image.PreviewGroup
-                              preview={{
-                                scaleStep: 3,
-                                countRender: (current, total) => {
-                                  const name = imgsInPanel[current - 1]?.fileName ?? ''
-                                  return (
-                                    <div className='iv-image-preview-progress'>
-                                      {name ? (
-                                        <span className='iv-image-preview-filename' title={name}>
-                                          {name}
-                                        </span>
-                                      ) : null}
-                                      <bdi className='iv-image-preview-counter'>
-                                        {current} / {total}
-                                      </bdi>
-                                    </div>
-                                  )
-                                }
-                              }}
-                            >
-                              {imgsInPanel.map((img, indexInFolder) => (
-                                <StyleImage key={img.path}>
-                                  <ImageLazyLoad
-                                    enableLazyLoad={enableLazyLoad}
-                                    img={img}
-                                    backgroundColor={backgroundColor}
-                                    autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
-                                    onAutoPreview={onAutoPreview}
-                                    indexInFolder={indexInFolder}
-                                    imageGridColumns={imageGridColumns}
-                                  />
-                                  <ImageInfo img={img} onDeleteImage={onDeleteImage} />
-                                </StyleImage>
-                              ))}
-                            </Image.PreviewGroup>
-                          </StyleImageList>
+                          <VirtualFolderImageGrid
+                            scrollTick={listScrollTick}
+                            scrollRootRef={ref}
+                            listInnerWidth={layoutWidthForSizing}
+                            columns={imageGridColumns}
+                            imgs={imgsInPanel}
+                            backgroundColor={backgroundColor}
+                            enableLazyLoad={enableLazyLoad}
+                            everAutoPreview={everAutoPreview}
+                            clickFilePath={clickFilePath}
+                            onAutoPreview={onAutoPreview}
+                            onDeleteImage={onDeleteImage}
+                          />
                         ) : null}
                       </Collapse.Panel>
                     )

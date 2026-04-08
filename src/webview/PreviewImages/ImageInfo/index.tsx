@@ -3,7 +3,7 @@ import type { MenuProps } from 'antd'
 import { callVscode } from '@easy_vscode/webview'
 import React, { useCallback, useMemo } from 'react'
 import { MESSAGE_CMD } from '../../../constants'
-import type { IImage } from '..'
+import type { IImage } from '../imageTypes'
 import { StyleImageInfo, StyleImageName } from './style'
 import { CopyOutlined, DeleteOutlined } from '@ant-design/icons'
 

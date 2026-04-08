@@ -4,7 +4,14 @@ import { utils, webviewUtils } from '@easy_vscode/core'
 import { IWebview, IWebviewProps, IMessage } from '@easy_vscode/core/lib/types'
 import { DIST_WEBVIEW_INDEX_HTML, EXTENSION_COMMANDS, MESSAGE_CMD, WEBVIEW_NAMES } from '../../constants'
 import { getAllImgs, getImageBase64, getImageSize } from './utils'
+import { normalizeThumbTierEdge } from '../../config/gridThumb'
+import { resolveThumbForGrid, cacheFsPathToThumbResourceUri } from './thumbGridCache'
 import { readLocalConfigFile, writeLocalConfigFile } from './config'
+
+/** `GET_THUMB_FOR_GRID` 回传 webview 的载荷。 */
+export type GridThumbWirePayload =
+  | { kind: 'thumb'; thumbSrc: string }
+  | { kind: 'original' }
 
 const { deleteFile, getProjectPath, renameFile } = utils
 const { invokeCallback, successResp } = webviewUtils
@@ -68,6 +75,34 @@ const messageHandlers = new Map([
     (message: IMessage) => {
       const dimensions = getImageSize(message.data.filePath)
       invokeCallback(viewType, message, dimensions)
+    }
+  ],
+  [
+    MESSAGE_CMD.GET_THUMB_FOR_GRID,
+    (message: IMessage, panelWebview: Webview) => {
+      const callbackId = message.callbackId
+      const filePathIn = String(message.data?.filePath ?? '')
+      const targetEdge = normalizeThumbTierEdge(Number(message.data?.targetMaxEdgePx))
+      const reply = (payload: GridThumbWirePayload) => {
+        invokeCallback(viewType, { ...message, callbackId } as IMessage, payload)
+      }
+      void (async () => {
+        try {
+          const res = await resolveThumbForGrid(filePathIn, targetEdge)
+          if (res.kind === 'thumb') {
+            const resourceUri = cacheFsPathToThumbResourceUri(res.cacheFsPath) ?? Uri.file(res.cacheFsPath)
+            reply({
+              kind: 'thumb',
+              thumbSrc: panelWebview.asWebviewUri(resourceUri).toString()
+            })
+          } else {
+            reply({ kind: 'original' })
+          }
+        } catch (e) {
+          console.error(e)
+          reply({ kind: 'original' })
+        }
+      })()
     }
   ],
   [

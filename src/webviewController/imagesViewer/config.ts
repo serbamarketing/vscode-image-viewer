@@ -1,6 +1,6 @@
 import { IConfig } from 'types'
 import { utils } from '@easy_vscode/core'
-import fs from 'fs'
+import * as fs from 'fs'
 import json5 from 'json5'
 
 const { getProjectPath, envVars } = utils
@@ -50,8 +50,9 @@ export const readLocalConfigFile = (): IConfig => {
       return DEFAULT_CONFIG
     }
     const fileContents = fs.readFileSync(configFilePath, 'utf8');
-    return json5.parse(fileContents);
+    return json5.parse(fileContents) as IConfig
   } catch (e) {
-    console.error(e);
+    console.error(e)
+    return DEFAULT_CONFIG
   }
 }

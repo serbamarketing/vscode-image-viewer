@@ -12,6 +12,8 @@ const { getProjectPath } = utils
 
 interface IImage {
   path: string
+  /** Absolute filesystem path; used for disk cache / RPC (same as dfs `filePath`). */
+  fullPath: string
   vscodePath: string
   size: number
   mtimeMs: number
@@ -71,6 +73,7 @@ function searchImgs(basePath: string, includeFolders: string[], excludeFolders: 
       const vscodePath = webview.asWebviewUri(Uri.file(filePath)).toString()
       const img = {
         path: relativePath,
+        fullPath: filePath,
         vscodePath,
         size: st.size,
         mtimeMs: st.mtimeMs

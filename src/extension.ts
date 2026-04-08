@@ -1,6 +1,7 @@
 import * as vscode from 'vscode'
 import { utils } from '@easy_vscode/core'
 import { registryAllWebviews } from './webviewController'
+import { initGridThumbGlobalStorage } from './webviewController/imagesViewer/thumbGridCache'
 import * as path from 'path'
 
 const {envVars} = utils
@@ -12,6 +13,7 @@ export function activate(context: vscode.ExtensionContext) {
   // This line of code will only be executed once when your extension is activated
   console.log('Congratulations, your extension "Image Viewer" is now active!')
   envVars.extensionPath = path.join(context.extensionPath, './')
+  initGridThumbGlobalStorage(context)
   registryAllWebviews(context)
 }
 
