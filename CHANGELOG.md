@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.4] - 2026-04-17
+
+### Changed
+
+- Republish this release to keep VS Code Marketplace and Open VSX versions aligned.
+
 ## [2.0.3] - 2026-04-17
 
 ### Changed
