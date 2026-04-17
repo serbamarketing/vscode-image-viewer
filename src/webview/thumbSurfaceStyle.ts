@@ -15,8 +15,7 @@ export function thumbPadStyle(backgroundColor: string): CSSProperties {
     alignItems: 'center',
     justifyContent: 'center',
     boxSizing: 'border-box',
-    borderRadius: 2,
-    boxShadow: 'inset 0 0 0 1px var(--iv-thumb-edge, rgba(128, 128, 128, 0.12))'
+    borderRadius: 0
   }
   if (backgroundColor === BACKGROUND_CHECKERBOARD) {
     return {
