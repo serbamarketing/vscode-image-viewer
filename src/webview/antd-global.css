@@ -357,35 +357,3 @@ div .ant-tooltip {
   padding: 12px 24px;
 }
 
-/* Image preview chrome: file name + counter (`countRender` root) */
-.iv-image-preview-progress {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  max-width: min(92vw, 720px);
-  text-align: center;
-  line-height: 1.35;
-}
-
-.iv-image-preview-filename {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  word-break: break-all;
-  overflow-wrap: anywhere;
-  color: inherit;
-}
-
-.iv-image-preview-counter {
-  font-size: 14px;
-  opacity: 0.95;
-}
-
-.iv-image-preview-counter-sep {
-  opacity: 0.72;
-}
-
-.iv-image-preview-counter-folder {
-  font-weight: 500;
-}

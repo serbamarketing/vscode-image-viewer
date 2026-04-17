@@ -32,6 +32,10 @@ export interface VirtualFolderImageGridProps {
   clickFilePath: string
   onAutoPreview: () => void
   onDeleteImage: (fullPath: string) => void
+  /** Open the external lightbox at the image's global index. */
+  onOpenPreview: (img: IImage) => void
+  /** Receive resolved grid thumbnail URL for lightbox minimap. */
+  onThumbResolved?: (vscodePath: string, thumbSrc: string) => void
 }
 /* eslint-enable no-unused-vars */
 
@@ -52,7 +56,9 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
   everAutoPreview,
   clickFilePath,
   onAutoPreview,
-  onDeleteImage
+  onDeleteImage,
+  onOpenPreview,
+  onThumbResolved
 }) => {
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const [win, setWin] = useState({ startRow: 0, endRow: 0 })
@@ -144,9 +150,11 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
               backgroundColor={backgroundColor}
               autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
               onAutoPreview={onAutoPreview}
+              onOpenPreview={() => onOpenPreview(img)}
               indexInFolder={indexInFolder}
               imageGridColumns={cols}
               thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
+              onThumbResolved={onThumbResolved}
             />
             <ImageInfo img={img} onDeleteImage={onDeleteImage} showFileName={showFileCaption} />
           </StyleImage>
@@ -199,9 +207,11 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
                       backgroundColor={backgroundColor}
                       autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
                       onAutoPreview={onAutoPreview}
+                      onOpenPreview={() => onOpenPreview(img)}
                       indexInFolder={i}
                       imageGridColumns={cols}
                       thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
+                      onThumbResolved={onThumbResolved}
                     />
                     <ImageInfo img={img} onDeleteImage={onDeleteImage} showFileName={showFileCaption} />
                   </StyleImage>

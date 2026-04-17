@@ -3,6 +3,7 @@
 node_modules/**
 src/**
 .gitignore
+.nvmrc
 .yarnrc
 vsc-extension-quickstart.md
 **/tsconfig.json
@@ -24,3 +25,4 @@ TestPics/
 docs/
 scripts/
 github-issues/
+issues/

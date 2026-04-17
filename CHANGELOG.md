@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.2] - 2026-04-17
+
+### Added
+
+- **New preview experience:** the large-image viewer is now based on our self-maintained `right-image-preview`.
+- **Smoother browsing:** next/previous navigation follows the folder order shown in the panel, so switching images feels more natural.
+- **Clearer preview map:** the small overview map is sharper and more efficient for large images.
+- **Better controls:** preview now has more convenient zoom and navigation interactions, plus quick flip actions.
+
+
 ## [2.0.0] - 2026-04-09
 
 ### Added

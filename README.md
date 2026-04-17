@@ -4,16 +4,21 @@ View and manage images in your workspace: thumbnail grid, large preview, copy Ba
 
 ## Screenshots
 
-### Main panel (grid & chrome)
+### Main panel
 
 ![Image Viewer main panel — folder group preview in dark theme](https://public-img-1253867148.cos.ap-singapore.myqcloud.com/img-in-docs/dark%20theme%2C%20big%20pictures.png)
 
 ![Image Viewer main panel — image preview in dark theme](https://public-img-1253867148.cos.ap-singapore.myqcloud.com/img-in-docs/dark%20theme%2C%20big%20pictures%20-%20view.png)
 
+This shows another light theme style, as well as switching to a checkerboard background to reveal the transparent parts of SVG images.
 ![Image Viewer main panel — SVG with transparent background in light theme](https://public-img-1253867148.cos.ap-singapore.myqcloud.com/img-in-docs/light%20theme%EF%BC%8Csvg%20icons.png)
 
 ## Features
 
+- The full-screen viewer is now powered by our own preview engine, with a smoother browsing experience.
+- Moving to next/previous images now feels more natural and follows the folder order you see in the panel.
+- The small overview map in preview looks clearer and loads faster, especially for very large images.
+- Preview interactions are richer and easier to use (mouse wheel zoom, double-click zoom, quick flip, and easier navigation buttons).
 - Thumbnail grid with **lazy loading** and tuning for large libraries (many high-resolution images).
 - **Column count** controls grid density (uses panel width efficiently).
 - **Sort** images inside each folder (name, modified time, size, asc/desc).

@@ -15,17 +15,23 @@ import {
   useThumbLoadBudget
 } from '../thumbLoadBudget'
 
+/* eslint-disable no-unused-vars -- type-only callback parameter names */
 interface IImageLazyLoadProps {
   enableLazyLoad: boolean
   img: IImage
   backgroundColor: string
   autoPreview: boolean
   onAutoPreview: () => void
+  /** Called when user clicks thumbnail or autoPreview fires — opens external lightbox at the right index. */
+  onOpenPreview: () => void
   indexInFolder: number
   imageGridColumns: number
   /** Host thumbnail decode tier max edge (100 / 200 / 400 / 800 / 1600), derived from column width. */
   thumbTargetMaxEdgePx: number
+  /** Report resolved thumbnail URL so lightbox minimap can avoid full-size source. */
+  onThumbResolved?: (_vscodePath: string, _thumbSrc: string) => void
 }
+/* eslint-enable no-unused-vars */
 
 const CellShell = styled.div`
   width: 100%;
@@ -45,6 +51,28 @@ const ImgFit = styled.div`
   align-items: center;
   justify-content: center;
   min-height: 0;
+  position: relative;
+  cursor: pointer;
+
+  &:hover .iv-thumb-mask {
+    opacity: 1;
+  }
+`
+
+const ThumbMask = styled.div`
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #fff;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
 `
 
 const LoadingCenter = styled.div`
@@ -71,9 +99,11 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
   backgroundColor,
   autoPreview = false,
   onAutoPreview,
+  onOpenPreview,
   indexInFolder,
   imageGridColumns,
-  thumbTargetMaxEdgePx
+  thumbTargetMaxEdgePx,
+  onThumbResolved
 }) => {
   const { scrollRootRef, ioGeneration, registry, reveal } = useThumbLoadBudget()
   const shellRef = useRef<HTMLDivElement>(null)
@@ -103,10 +133,6 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
   const [dimensions, setDimensions] = useState<IDimensions>()
   const [everAutoPreview, setEverAutoPreview] = useState(false)
   const [cellEdge, setCellEdge] = useState(0)
-  /**
-   * Grid tile: `null` = do not load original URL (wait for thumb or explicit original fallback).
-   * Preview still uses full `vscodePath` via `preview.src`.
-   */
   const [gridDisplaySrc, setGridDisplaySrc] = useState<string | null>(null)
   const thumbRequestKeyDone = useRef<string | null>(null)
 
@@ -199,19 +225,6 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
     }
   }
 
-  const openPreview = () => {
-    const image = document.getElementById(img.fullPath)
-    if (!image) {
-      return
-    }
-    const event = new MouseEvent('click', {
-      view: window,
-      bubbles: true,
-      cancelable: true
-    })
-    image.dispatchEvent(event)
-  }
-
   const isShow = rawShow && painted
 
   useEffect(() => {
@@ -241,6 +254,7 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
         }
         if (r.kind === 'thumb') {
           setGridDisplaySrc(r.thumbSrc)
+          onThumbResolved?.(img.vscodePath, r.thumbSrc)
         } else {
           setGridDisplaySrc(img.vscodePath)
         }
@@ -249,17 +263,17 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
     return () => {
       cancelled = true
     }
-  }, [isShow, img.fullPath, img.fileName, img.size, img.vscodePath, enableLazyLoad, thumbTargetMaxEdgePx])
+  }, [isShow, img.fullPath, img.fileName, img.size, img.vscodePath, enableLazyLoad, thumbTargetMaxEdgePx, onThumbResolved])
 
   useEffect(() => {
     if (!everAutoPreview && autoPreview && isShow && gridDisplaySrc != null) {
       setEverAutoPreview(true)
       requestAnimationFrame(() => {
-        openPreview()
+        onOpenPreview()
         onAutoPreview()
       })
     }
-  }, [autoPreview, everAutoPreview, isShow, gridDisplaySrc, onAutoPreview])
+  }, [autoPreview, everAutoPreview, isShow, gridDisplaySrc, onAutoPreview, onOpenPreview])
 
   const pad = thumbPadStyle(backgroundColor)
   const imgBg = imageInlineBackground(backgroundColor)
@@ -275,9 +289,8 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
           <Spin />
         </LoadingCenter>
       ) : (
-        <ImgFit style={pad}>
+        <ImgFit style={pad} onClick={onOpenPreview} onMouseOver={handleMouseOver}>
           <Image
-            id={img.fullPath}
             alt={img.fileName}
             width='100%'
             height='100%'
@@ -287,31 +300,27 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              backgroundColor: imgBg
+              backgroundColor: imgBg,
+              pointerEvents: 'none'
             }}
             src={gridDisplaySrc}
             onLoad={() => setLatched(true)}
-            preview={{
-              src: img.vscodePath,
-              scaleStep: 3,
-              mask: (
-                <div className='ant-image-mask-info' onMouseOver={handleMouseOver}>
-                  <EyeOutlined />
-                  {cellEdge >= MIN_SIZE_SHOW_PREVIEW_INFO && (
-                    <>
-                      Preview
-                      {dimensions && (
-                        <div style={{ fontSize: '12px' }}>
-                          {dimensions.width} x {dimensions.height}
-                        </div>
-                      )}
-                      <div style={{ fontSize: '12px' }}>{formatBytes(img.size)}</div>
-                    </>
-                  )}
-                </div>
-              )
-            }}
+            preview={false}
           />
+          <ThumbMask className='iv-thumb-mask'>
+            <EyeOutlined style={{ fontSize: '18px' }} />
+            {cellEdge >= MIN_SIZE_SHOW_PREVIEW_INFO && (
+              <>
+                <span style={{ fontSize: '12px' }}>Preview</span>
+                {dimensions && (
+                  <span style={{ fontSize: '11px', opacity: 0.8 }}>
+                    {dimensions.width} × {dimensions.height}
+                  </span>
+                )}
+                <span style={{ fontSize: '11px', opacity: 0.8 }}>{formatBytes(img.size)}</span>
+              </>
+            )}
+          </ThumbMask>
         </ImgFit>
       )}
     </CellShell>

@@ -4,7 +4,6 @@ import {
   Collapse,
   ConfigProvider,
   Empty,
-  Image,
   Input,
   Select,
   Skeleton,
@@ -13,8 +12,17 @@ import {
   Spin,
   Tooltip
 } from 'antd'
-import { BgColorsOutlined, FolderOpenTwoTone, InfoCircleOutlined, MoonOutlined, SearchOutlined, SunOutlined } from '@ant-design/icons'
+import {
+  BgColorsOutlined,
+  FolderOpenTwoTone,
+  InfoCircleOutlined,
+  MoonOutlined,
+  SearchOutlined,
+  SunOutlined
+} from '@ant-design/icons'
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ImagePreview } from 'right-image-preview'
+import type { ImageGroup, ImageItem } from 'right-image-preview'
 import {
   BACKGROUND_CHECKERBOARD,
   BACKGROUND_COLOR_OPTIONS,
@@ -214,6 +222,12 @@ const PreviewImages: React.FC = () => {
   /** True when config has neither `imageGridColumns` nor legacy `size`; apply once real width known. */
   const needWidthBasedColumnsRef = useRef(false)
   const currentProjectPath = useRef('')
+
+  /** Lightbox (right-image-preview) state */
+  const [lightboxVisible, setLightboxVisible] = useState(false)
+  const [lightboxKey, setLightboxKey] = useState(0)
+  const [lightboxDefaultIndex, setLightboxDefaultIndex] = useState(0)
+  const [minimapSrcByVscodePath, setMinimapSrcByVscodePath] = useState<Record<string, string>>({})
 
   const ref = useRef<HTMLDivElement | null>(null)
   const [thumbIoGen, setThumbIoGen] = useState(0)
@@ -464,21 +478,9 @@ const PreviewImages: React.FC = () => {
     return map
   }, [showImgs, imageSort, clickFilePath])
 
-  /** 1-based index within folder + folder size, keyed by `IImage.vscodePath` (for lightbox counter). */
-  const previewIndexInFolderByVscodePath = useMemo(() => {
-    const m = new Map<string, { indexInFolder: number; folderTotal: number }>()
-    for (const list of sortedImagesByDir.values()) {
-      const folderTotal = list.length
-      for (let i = 0; i < list.length; i++) {
-        m.set(list[i].vscodePath, { indexInFolder: i + 1, folderTotal })
-      }
-    }
-    return m
-  }, [sortedImagesByDir])
-
   /**
-   * Flat list for lightbox: same folder order as the Collapse panel headers, so the last image in a folder
-   * can advance (→ / right arrow) into the first image of the next folder.
+   * Flat list for lightbox: same folder order as the Collapse panel headers, so ← / → navigates
+   * across folders in the same visual order the user sees.
    */
   const globalPreviewFlat = useMemo(() => {
     const out: IImage[] = []
@@ -491,48 +493,79 @@ const PreviewImages: React.FC = () => {
     return out
   }, [allPaths, sortedImagesByDir])
 
-  const globalPreviewItems = useMemo(() => globalPreviewFlat.map((i) => i.vscodePath), [globalPreviewFlat])
+  useEffect(() => {
+    const valid = new Set(globalPreviewFlat.map((img) => img.vscodePath))
+    setMinimapSrcByVscodePath((prev) => {
+      let changed = false
+      const next: Record<string, string> = {}
+      for (const [k, v] of Object.entries(prev)) {
+        if (valid.has(k)) {
+          next[k] = v
+        } else {
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [globalPreviewFlat])
 
-  const globalPreviewCountRender = useCallback(
-    (current: number, total: number) => {
-      const meta = globalPreviewFlat[current - 1]
-      const name = meta?.fileName ?? ''
-      const folderMeta = meta ? previewIndexInFolderByVscodePath.get(meta.vscodePath) : undefined
-      const showFolderSlice =
-        folderMeta != null && folderMeta.folderTotal < total
-      const counterTitle =
-        folderMeta == null
-          ? `${current} of ${total} (all visible images)`
-          : showFolderSlice
-            ? `${folderMeta.indexInFolder} of ${folderMeta.folderTotal} in this folder · ${current} of ${total} all visible`
-            : `${current} of ${total} (this folder · all visible)`
-      return (
-        <div className='iv-image-preview-progress'>
-          {name ? (
-            <span className='iv-image-preview-filename' title={name}>
-              {name}
-            </span>
-          ) : null}
-          <bdi className='iv-image-preview-counter' title={counterTitle}>
-            {showFolderSlice ? (
-              <>
-                <span className='iv-image-preview-counter-folder'>
-                  {folderMeta.indexInFolder} / {folderMeta.folderTotal}
-                </span>
-                <span className='iv-image-preview-counter-sep' aria-hidden='true'>
-                  {' · '}
-                </span>
-              </>
-            ) : null}
-            <span className='iv-image-preview-counter-global'>
-              {current} / {total}
-            </span>
-          </bdi>
-        </div>
-      )
-    },
-    [globalPreviewFlat, previewIndexInFolderByVscodePath]
+  /** Global flat index keyed by vscodePath — used to find the clicked image's index. */
+  const globalIndexByVscodePath = useMemo(() => {
+    const m = new Map<string, number>()
+    for (let i = 0; i < globalPreviewFlat.length; i++) {
+      m.set(globalPreviewFlat[i].vscodePath, i)
+    }
+    return m
+  }, [globalPreviewFlat])
+
+  /** ImageItem[] for right-image-preview. */
+  const lightboxImages = useMemo<ImageItem[]>(
+    () =>
+      globalPreviewFlat.map((img) => ({
+        src: img.vscodePath,
+        minimapSrc: minimapSrcByVscodePath[img.vscodePath],
+        name: img.fileName,
+        alt: img.fileName
+      })),
+    [globalPreviewFlat, minimapSrcByVscodePath]
   )
+
+  /** ImageGroup[] for right-image-preview — one group per folder, in allPaths order. */
+  const lightboxGroups = useMemo<ImageGroup[]>(() => {
+    const groups: ImageGroup[] = []
+    let offset = 0
+    for (const dirPath of allPaths) {
+      const list = sortedImagesByDir.get(dirPath)
+      const count = list?.length ?? 0
+      if (count > 0) {
+        groups.push({ name: formatRelativeDirDisplay(dirPath), start: offset, end: offset + count - 1 })
+        offset += count
+      }
+    }
+    return groups
+  }, [allPaths, sortedImagesByDir])
+
+  const handleOpenPreview = useCallback(
+    (img: IImage) => {
+      const idx = globalIndexByVscodePath.get(img.vscodePath) ?? 0
+      setLightboxDefaultIndex(idx)
+      setLightboxKey((k) => k + 1)
+      setLightboxVisible(true)
+    },
+    [globalIndexByVscodePath]
+  )
+
+  const handleThumbResolved = useCallback((vscodePath: string, thumbSrc: string) => {
+    if (!vscodePath || !thumbSrc) {
+      return
+    }
+    setMinimapSrcByVscodePath((prev) => {
+      if (prev[vscodePath] === thumbSrc) {
+        return prev
+      }
+      return { ...prev, [vscodePath]: thumbSrc }
+    })
+  }, [])
 
   /** One `setActiveKey` (no Spin overlay). rAF so the click frame stays light before the big commit. */
   const handleExpandAllFolders = useCallback(() => {
@@ -759,50 +792,47 @@ const PreviewImages: React.FC = () => {
                 customizeRenderEmpty()
               ) : (
                 <ThumbLoadBudgetProvider scrollRootRef={ref} ioGeneration={thumbIoGen} gridColumns={imageGridColumns}>
-                  <Image.PreviewGroup
-                    items={globalPreviewItems}
-                    preview={{ scaleStep: 3, countRender: globalPreviewCountRender }}
-                  >
-                    <Collapse activeKey={activeKey} onChange={handleChangeActiveKey}>
-                      {allPaths.map((path) => {
-                        const imgsInPanel = sortedImagesByDir.get(path) ?? []
-                        const panelOpen = activeKey.includes(path)
-                        return (
-                          <Collapse.Panel
-                            header={
-                              <span>
-                                {formatRelativeDirDisplay(path)}
-                                <StyledPicCount>({imgsInPanel.length})</StyledPicCount>
-                                <StyledFolderOpenTwoTone>
-                                  <FolderOpenTwoTone
-                                    twoToneColor='#f4d057'
-                                    onClick={(e) => handleClickOpenFolder(e, path)}
-                                  />
-                                </StyledFolderOpenTwoTone>
-                              </span>
-                            }
-                            key={path}
-                          >
-                            {panelOpen ? (
-                              <VirtualFolderImageGrid
-                                scrollTick={listScrollTick}
-                                scrollRootRef={ref}
-                                listInnerWidth={layoutWidthForSizing}
-                                columns={imageGridColumns}
-                                imgs={imgsInPanel}
-                                backgroundColor={backgroundColor}
-                                enableLazyLoad={enableLazyLoad}
-                                everAutoPreview={everAutoPreview}
-                                clickFilePath={clickFilePath}
-                                onAutoPreview={onAutoPreview}
-                                onDeleteImage={onDeleteImage}
-                              />
-                            ) : null}
-                          </Collapse.Panel>
-                        )
-                      })}
-                    </Collapse>
-                  </Image.PreviewGroup>
+                  <Collapse activeKey={activeKey} onChange={handleChangeActiveKey}>
+                    {allPaths.map((path) => {
+                      const imgsInPanel = sortedImagesByDir.get(path) ?? []
+                      const panelOpen = activeKey.includes(path)
+                      return (
+                        <Collapse.Panel
+                          header={
+                            <span>
+                              {formatRelativeDirDisplay(path)}
+                              <StyledPicCount>({imgsInPanel.length})</StyledPicCount>
+                              <StyledFolderOpenTwoTone>
+                                <FolderOpenTwoTone
+                                  twoToneColor='#f4d057'
+                                  onClick={(e) => handleClickOpenFolder(e, path)}
+                                />
+                              </StyledFolderOpenTwoTone>
+                            </span>
+                          }
+                          key={path}
+                        >
+                          {panelOpen ? (
+                            <VirtualFolderImageGrid
+                              scrollTick={listScrollTick}
+                              scrollRootRef={ref}
+                              listInnerWidth={layoutWidthForSizing}
+                              columns={imageGridColumns}
+                              imgs={imgsInPanel}
+                              backgroundColor={backgroundColor}
+                              enableLazyLoad={enableLazyLoad}
+                              everAutoPreview={everAutoPreview}
+                              clickFilePath={clickFilePath}
+                              onAutoPreview={onAutoPreview}
+                              onDeleteImage={onDeleteImage}
+                              onOpenPreview={handleOpenPreview}
+                              onThumbResolved={handleThumbResolved}
+                            />
+                          ) : null}
+                        </Collapse.Panel>
+                      )
+                    })}
+                  </Collapse>
                 </ThumbLoadBudgetProvider>
               )}
             </StyledImgsContainer>
@@ -819,6 +849,21 @@ const PreviewImages: React.FC = () => {
           onApply={handleApplySettings}
         />
       )}
+      <ImagePreview
+        key={lightboxKey}
+        images={lightboxImages}
+        groups={lightboxGroups.length > 1 ? lightboxGroups : undefined}
+        visible={lightboxVisible}
+        defaultIndex={lightboxDefaultIndex}
+        wheelEnabled
+        doubleClickEnabled
+        closeOnMaskClick
+        arrows='side'
+        showFlip
+        zoomOutBelowMinBehaviour='fit'
+        firstZoomInStrategy='hundred'
+        onClose={() => setLightboxVisible(false)}
+      />
       </>
     </ConfigProvider>
   )
