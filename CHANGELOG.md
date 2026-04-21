@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.0.5] - 2026-04-17
+
+### Added
+
+- Added tooltip hints for preview toolbar buttons to make controls easier to understand.
+
+### Changed
+
+- Upgraded `right-image-preview` to the latest API model and aligned grouped preview integration.
+
 ## [2.0.4] - 2026-04-17
 
 ### Changed

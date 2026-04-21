@@ -22,7 +22,7 @@ import {
 } from '@ant-design/icons'
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ImagePreview } from 'right-image-preview'
-import type { ImageGroup, ImageItem } from 'right-image-preview'
+import type { ImageGroup } from 'right-image-preview'
 import {
   BACKGROUND_CHECKERBOARD,
   BACKGROUND_COLOR_OPTIONS,
@@ -518,32 +518,26 @@ const PreviewImages: React.FC = () => {
     return m
   }, [globalPreviewFlat])
 
-  /** ImageItem[] for right-image-preview. */
-  const lightboxImages = useMemo<ImageItem[]>(
-    () =>
-      globalPreviewFlat.map((img) => ({
-        src: img.vscodePath,
-        minimapSrc: minimapSrcByVscodePath[img.vscodePath],
-        name: img.fileName,
-        alt: img.fileName
-      })),
-    [globalPreviewFlat, minimapSrcByVscodePath]
-  )
-
-  /** ImageGroup[] for right-image-preview — one group per folder, in allPaths order. */
+  /** ImageGroup[] for right-image-preview groupedImages mode — one group per folder, in allPaths order. */
   const lightboxGroups = useMemo<ImageGroup[]>(() => {
     const groups: ImageGroup[] = []
-    let offset = 0
     for (const dirPath of allPaths) {
       const list = sortedImagesByDir.get(dirPath)
-      const count = list?.length ?? 0
-      if (count > 0) {
-        groups.push({ name: formatRelativeDirDisplay(dirPath), start: offset, end: offset + count - 1 })
-        offset += count
+      if (list?.length) {
+        groups.push({
+          name: formatRelativeDirDisplay(dirPath),
+          images: list.map((img) => ({
+            id: img.vscodePath,
+            src: img.vscodePath,
+            minimapSrc: minimapSrcByVscodePath[img.vscodePath],
+            name: img.fileName,
+            alt: img.fileName
+          }))
+        })
       }
     }
     return groups
-  }, [allPaths, sortedImagesByDir])
+  }, [allPaths, sortedImagesByDir, minimapSrcByVscodePath])
 
   const handleOpenPreview = useCallback(
     (img: IImage) => {
@@ -851,8 +845,7 @@ const PreviewImages: React.FC = () => {
       )}
       <ImagePreview
         key={lightboxKey}
-        images={lightboxImages}
-        groups={lightboxGroups.length > 1 ? lightboxGroups : undefined}
+        groupedImages={lightboxGroups.length > 0 ? lightboxGroups : undefined}
         visible={lightboxVisible}
         defaultIndex={lightboxDefaultIndex}
         wheelEnabled
@@ -860,8 +853,6 @@ const PreviewImages: React.FC = () => {
         closeOnMaskClick
         arrows='side'
         showFlip
-        zoomOutBelowMinBehaviour='fit'
-        firstZoomInStrategy='hundred'
         onClose={() => setLightboxVisible(false)}
       />
       </>
