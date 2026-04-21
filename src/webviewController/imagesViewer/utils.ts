@@ -8,7 +8,7 @@ import { readLocalConfigFile } from './config'
 export const SUPPORT_IMG_TYPES = ['.svg', '.png', '.jpeg', '.jpg', '.ico', '.gif', '.webp', '.bmp', '.tif', '.tiff', '.apng', '.avif']
 const { getProjectPath } = utils
 
-/** macOS AppleDouble sidecar files on exFAT/USB（如 ._085.jpg）；按扩展名像图片但并非位图。 */
+/** macOS AppleDouble sidecar files on exFAT/USB (e.g. ._085.jpg); they may look like images by extension but are not bitmap content. */
 function isAppleDoubleSidecarFile(absPath: string): boolean {
   return path.basename(absPath).startsWith('._')
 }
@@ -44,7 +44,7 @@ function searchImgs(
   includeFolders: string[],
   excludeFolders: string[],
   webview: Webview,
-  /** 非空时只递归该目录（及子目录），并忽略 `includeFolders`（用于资源管理器右键目录）。 */
+  /** When set, recurse only this directory tree (including subfolders), ignoring `includeFolders` (used by Explorer context actions). */
   listScopeAbsPath: string | null
 ) {
   // const imgs: any = new Map<string, IImage>()
@@ -104,7 +104,7 @@ function searchImgs(
 
 /**
  * get all imgs
- * @param listScopeAbsPath 仅列此目录树；为 null 时按配置的 `includeFolders` 或整库搜索。
+ * @param listScopeAbsPath List only this directory tree; when null, search by configured `includeFolders` or the whole workspace.
  */
 export const getAllImgs = (webview: Webview, listScopeAbsPath: string | null = null) => {
   const config = readLocalConfigFile()

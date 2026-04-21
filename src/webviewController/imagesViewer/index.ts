@@ -10,7 +10,7 @@ import { resolveThumbForGrid, cacheFsPathToThumbResourceUri } from './thumbGridC
 import { readLocalConfigFile, writeLocalConfigFile } from './config'
 import { imageViewerPanelInstanceKey, imageViewerPanelTitle } from '../imageViewerPanelScope'
 
-/** `GET_THUMB_FOR_GRID` 回传 webview 的载荷。 */
+/** Webview payload returned by `GET_THUMB_FOR_GRID`. */
 export type GridThumbWirePayload =
   | { kind: 'thumb'; thumbSrc: string }
   | { kind: 'original' }

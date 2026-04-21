@@ -24,7 +24,8 @@ export interface IConfig {
   uiTheme?: WebviewUiThemePreference,
   imageSort?: ImageSortMode,
   /**
-   * 仅扩展在 `GET_CONFIG` 应答中注入（`vscode.env.language`），不写本地配置文件。
+   * Injected by the extension only in `GET_CONFIG` responses (`vscode.env.language`);
+   * never persisted to the local config file.
    */
   hostUiLanguage?: string,
 }

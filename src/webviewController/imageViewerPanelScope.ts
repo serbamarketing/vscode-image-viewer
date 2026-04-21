@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-/** 与 webview 侧 `commandArgToFsPath` 一致：VS Code Uri JSON。 */
+/** Matches the webview-side `commandArgToFsPath`: VS Code Uri JSON payload shape. */
 export function commandArgToFsPath(arg: unknown): string {
   if (arg === undefined || arg === null) {
     return ''
@@ -33,7 +33,7 @@ function normalizePanelPathKey(absPath: string): string {
   return n
 }
 
-/** 整库浏览共用一个 key；各子目录各用规范化后的绝对目录路径 key。 */
+/** Whole-workspace view shares one key; each subdirectory view uses its normalized absolute directory path as key. */
 export function imageViewerPanelInstanceKey(args: unknown[], projectPath: string): string {
   const raw = commandArgToFsPath(args?.[0])
   if (!raw) {
@@ -56,7 +56,7 @@ export function imageViewerPanelInstanceKey(args: unknown[], projectPath: string
   return '__full__'
 }
 
-/** 资源管理器 Webview **标签页标题**（非页面内文案）；改 `${defaultTitle} — …` 等格式在此函数。 */
+/** Explorer Webview editor tab title (not in-page text); adjust formats like `${defaultTitle} — ...` here. */
 export function imageViewerPanelTitle(args: unknown[], projectPath: string, defaultTitle: string): string {
   const raw = commandArgToFsPath(args?.[0])
   if (!raw) {

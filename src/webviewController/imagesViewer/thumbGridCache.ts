@@ -1,4 +1,4 @@
-/** 网格缩略图：globalStorage 中小 JPEG（macOS 主路径为 `sips`；「仅 QL」试验可为 PNG）+ `asWebviewUri`。 */
+/** Grid thumbnails: small files in globalStorage (JPEG by default on macOS via `sips`; PNG in raw-QL experimental mode) served through `asWebviewUri`. */
 /* eslint-disable @typescript-eslint/no-var-requires */
 import { execFile } from 'child_process'
 import { createHash } from 'crypto'
@@ -43,12 +43,12 @@ export type GridThumbResponse =
   | { kind: 'original' }
 
 let globalThumbRoot: string | null = null
-/** `Uri.joinPath(globalStorageUri, GRID_THUMB_GLOBAL_SUBDIR)`，`asWebviewUri` 用此与 webview roots 对齐。 */
+/** `Uri.joinPath(globalStorageUri, GRID_THUMB_GLOBAL_SUBDIR)`, used by `asWebviewUri` to align with webview roots. */
 let globalThumbBaseUri: Uri | null = null
 let janitorLastRun = 0
 let janitorScheduled = false
 
-/** `activate` 中调用：确保缓存目录存在。 */
+/** Called during `activate`: ensure cache directory exists. */
 export function initGridThumbGlobalStorage(context: ExtensionContext): void {
   globalThumbBaseUri = Uri.joinPath(context.globalStorageUri, GRID_THUMB_GLOBAL_SUBDIR)
   const root = globalThumbBaseUri.fsPath
@@ -56,7 +56,7 @@ export function initGridThumbGlobalStorage(context: ExtensionContext): void {
   globalThumbRoot = root
 }
 
-/** 缓存绝对路径 → 与 `globalThumbBaseUri` 一致的 `Uri`（勿直接用 `Uri.file` 喂给部分宿主的 webview）。 */
+/** Convert absolute cache path to a `Uri` rooted at `globalThumbBaseUri` (avoid direct `Uri.file` for hosts with stricter webview URI handling). */
 export function cacheFsPathToThumbResourceUri(cacheFsPath: string): Uri | null {
   if (!globalThumbBaseUri || !globalThumbRoot) {
     return null
@@ -76,7 +76,7 @@ function getGlobalThumbRoot(): string | null {
   return globalThumbRoot
 }
 
-/** 完整 SHA256(hex)，用于稳定摘要；磁盘文件仅取其前缀 + 档位。 */
+/** Full SHA256 hex digest for stable identity; disk filename uses prefix + tier only. */
 function cacheDigestFullHex(realPath: string, mtimeMs: number, sizeBytes: number, tier: number): string {
   const t = normalizeThumbTierEdge(tier)
   return createHash('sha256')
@@ -95,7 +95,7 @@ function cacheFilePathsForDigest(fullHex: string, tier: number): { shardDir: str
   return { shardDir, filePath }
 }
 
-/** `image-size` 读文件头，将目标边长限制为不超过原图最大边（避免放大糊块）。 */
+/** Read image header via `image-size`; cap target edge to source max edge to avoid upscaled blur. */
 function decodeBoxEdgeClampedToOriginal(absPath: string, tierEdge: number): number {
   const cap = normalizeThumbTierEdge(tierEdge)
   try {
@@ -467,7 +467,7 @@ interface CacheFileEntry {
   mtimeMs: number
 }
 
-/** janitor 列举目录时节流并发 `stat`。 */
+/** Throttle concurrent `stat` calls while janitor lists cache directories. */
 const GRID_THUMB_LIST_STAT_CONCURRENCY = 256
 
 async function listGlobalCacheFiles(root: string): Promise<CacheFileEntry[]> {
