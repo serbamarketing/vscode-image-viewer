@@ -10,6 +10,7 @@
       "es2017",
       "dom"
     ],
+    "module": "commonjs",
     "moduleResolution": "node",
     "noImplicitAny": false,
     "outDir": "./dist",

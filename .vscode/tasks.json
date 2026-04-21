@@ -2,6 +2,20 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "Build Extension & Webview",
+			"type": "shell",
+			"command": "yarn ui-build && yarn compile",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
 			"label": "Watch Webview",
 			"type": "shell",
             "command": "yarn ui-watch",

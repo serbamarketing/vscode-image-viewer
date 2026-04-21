@@ -2,14 +2,14 @@
   "name": "image-viewer",
   "publisher": "vscode-infra",
   "displayName": "Image Viewer",
-  "description": "View and manage all images in current project, copy base64",
+  "description": "Browse images in your project: thumbnail grid, lightbox preview, copy path or Base64. Works well for large folders (columns layout, lazy loading). Light or dark UI; scan one folder from Explorer or the whole workspace.",
   "icon": "assets/logo.png",
-  "version": "1.6.1",
+  "version": "2.0.5",
   "author": "Zhang Jian <zhangjian1713@gmail.com>",
   "homepage": "https://github.com/ZhangJian1713/vscode-image-viewer",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.60.0"
+    "vscode": "^1.75.0"
   },
   "categories": [
     "Visualization",
@@ -17,14 +17,20 @@
   ],
   "keywords": [
     "image",
+    "images",
+    "gallery",
+    "thumbnail",
+    "preview",
+    "folder",
+    "columns",
     "base64",
     "svg",
+    "png",
+    "jpg",
+    "webp",
     "img",
     "pic",
-    "png"
-  ],
-  "activationEvents": [
-    "*"
+    "photos"
   ],
   "main": "./dist/extension.js",
   "webviewVendorTemplate": "antd-less",
@@ -53,20 +59,22 @@
   },
   "scripts": {
     "vscode:prepublish": "yarn run package",
-    "compile": "webpack --config webpack.extension.js",
-    "watch": "webpack --config webpack.extension.js --watch",
-    "package": "yarn ui-build && webpack --config webpack.extension.js --mode production --devtool hidden-source-map",
+    "compile": "npx webpack --config webpack.extension.js",
+    "watch": "npx webpack --config webpack.extension.js --watch",
+    "package": "yarn ui-build && npx webpack --config webpack.extension.js --mode production --devtool hidden-source-map",
+    "vsix": "bash scripts/vsix.sh",
     "test-compile": "tsc -p ./",
     "test-watch": "tsc -watch -p ./",
     "pretest": "yarn run test-compile && yarn run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
     "vendor:template": "node scripts/vendor-minimal-react-template.cjs",
-    "ui-dev": "webpack serve --config scaffold/webview.webpack.js --color --progress --mode development",
-    "ui-watch": "webpack --config scaffold/webview.webpack.js --watch --mode development",
-    "ui-build": "webpack --config scaffold/webview.webpack.js --color --mode production",
+    "ui-dev": "npx webpack serve --config scaffold/webview.webpack.js --color --progress --mode development",
+    "ui-watch": "npx webpack --config scaffold/webview.webpack.js --watch --mode development",
+    "ui-build": "npx webpack --config scaffold/webview.webpack.js --color --mode production",
     "lint-staged": "lint-staged",
-    "check-type": "tsc --noEmit"
+    "check-type": "tsc --noEmit",
+    "bench:thumb-mac": "node scripts/benchmark-ql-vs-jimp.cjs"
   },
   "repository": {
     "type": "git",
@@ -98,9 +106,10 @@
     "@types/node": "14.x",
     "@types/react-router-dom": "^5.1.8",
     "@types/styled-components": "^5.1.11",
-    "@types/vscode": "^1.60.0",
+    "@types/vscode": "^1.75.0",
     "@typescript-eslint/eslint-plugin": "^4.4.0",
     "@typescript-eslint/parser": "^4.4.0",
+    "@vscode/vsce": "^3.7.1",
     "awesome-typescript-loader": "^5.2.1",
     "babel-loader": "^8.2.2",
     "babel-plugin-import": "^1.13.3",
@@ -109,6 +118,7 @@
     "clean-webpack-plugin": "^4.0.0-alpha.0",
     "connect-history-api-fallback": "^1.6.0",
     "conventional-changelog-conventionalcommits": "^4.6.0",
+    "copy-webpack-plugin": "11.0.0",
     "css-loader": "^6.2.0",
     "eslint": "^7.31.0",
     "eslint-config-standard": "^16.0.3",
@@ -157,8 +167,9 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.5.0",
-    "@easy_vscode/core": "^1.7.2",
-    "@easy_vscode/webview": "^2.0.0",
+    "@easy_vscode/core": "2.0.1",
+    "@easy_vscode/webview": "2.0.1",
+    "@jsquash/webp": "1.5.0",
     "ahooks": "^3.7.5",
     "antd": "^5.22.0",
     "axios": "^0.24.0",
@@ -166,11 +177,13 @@
     "fs-extra": "^10.0.0",
     "i18next": "^21.9.0",
     "image-size": "^1.0.2",
+    "jimp": "0.22.12",
     "json5": "^2.2.3",
     "lodash": "^4.17.21",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-i18next": "^11.18.3",
+    "right-image-preview": "^0.2.0",
     "styled-components": "^5.3.0"
   },
   "resolutions": {

@@ -3,6 +3,7 @@
 node_modules/**
 src/**
 .gitignore
+.nvmrc
 .yarnrc
 vsc-extension-quickstart.md
 **/tsconfig.json
@@ -18,3 +19,10 @@ contribute.md
 webpack.extension.js
 scaffold/**
 projectsConfig/**
+ai-*/
+benchmark-out/
+TestPics/
+docs/
+scripts/
+github-issues/
+issues/

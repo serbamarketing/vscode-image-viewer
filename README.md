@@ -1,27 +1,45 @@
-## View Images in current project
+# Image Viewer
 
-![screenshot](https://public-img-1253867148.cos.ap-singapore.myqcloud.com/img-in-docs/15w87zqq.png)  
-![screenshot](https://public-img-1253867148.cos.ap-singapore.myqcloud.com/img-in-docs/2u85YQG.png)
+View and manage images in your workspace: thumbnail grid, large preview, copy Base64 / path / file name, and per-project include/exclude folders.
 
-### Features
+## Screenshots
 
-- Display all images as thumbnails, support resizing thumbnails and previewing origin image(zoom in/out or rotate freely)
-- Search image by name/type/path, include or exclude specific folders
-- Copy [Base64 coding | name | path] of any choosen images
-- Toggle the background color of images (Useful for transparent images such as SVG or PNG)
-- Individual project settings are now stored in local files
-- Optimized performance when there are many images (Tested with 10,000 images, switch to lazy loading when the images exceeds 100)
+### Main panel
+
+![Image Viewer main panel — folder group preview in dark theme](https://public-img-1253867148.cos.ap-singapore.myqcloud.com/img-in-docs/dark%20theme%2C%20big%20pictures.png)
+
+![Image Viewer main panel — image preview in dark theme](https://public-img-1253867148.cos.ap-singapore.myqcloud.com/img-in-docs/dark%20theme%2C%20big%20pictures%20-%20view.jpg)
+
+This shows another light theme style, as well as switching to a checkerboard background to reveal the transparent parts of SVG images.
+![Image Viewer main panel — SVG with transparent background in light theme](https://public-img-1253867148.cos.ap-singapore.myqcloud.com/img-in-docs/light%20theme%EF%BC%8Csvg%20icons.png)
+
+## Features
+
+- The full-screen viewer is now powered by our own preview engine, with a smoother browsing experience.
+- Moving to next/previous images now feels more natural and follows the folder order you see in the panel.
+- The small overview map in preview looks clearer and loads faster, especially for very large images.
+- Preview interactions are richer and easier to use (mouse wheel zoom, double-click zoom, quick flip, and easier navigation buttons).
+- Thumbnail grid with **lazy loading** and tuning for large libraries (many high-resolution images).
+- **Column count** controls grid density (uses panel width efficiently).
+- **Sort** images inside each folder (name, modified time, size, asc/desc).
+- **Light / dark** UI for the panel; default follows your VS Code or Cursor theme (toggle in the toolbar).
+- Preview backdrops: **checkerboard**, **transparent** (default), and solid swatches; useful for PNG/SVG with alpha.
+- Zoom and navigate with keyboard.
+- **Search** by path/name; filter by **file type**.
+- **Include / exclude** folders
+- **Copy** path, file name, or Base64 from the image menu.
+- Open a folder from Explorer: **only that folder tree** is scanned (fast in huge repos). **Multiple** Image Viewer tabs for different folders; tab title includes the folder name.
 
 ## How to use
 
-- Method 1: Open a project/folder and right-click at anywhere and click `View Images`, then the webview of `Image Viewer` will appear.  
-  ![screenshot](https://public-img-1253867148.cos.ap-singapore.myqcloud.com/img-in-docs/3oVW4mqE.png)
-- Method 2: Open vscode command palette by press `Ctrl+Shift+P` or `Command⌘+Shift⇧+P`, then input `View Images` or `vscode-infra.webviewImageViewer` and press `Enter`.
+1. Open a folder or workspace in VS Code / Cursor.
+2. **Whole workspace (default):** `Ctrl+Shift+P` / `⌘⇧P` → run **「View Images」** (command id: `vscode-infra.webviewImageViewer`).
+3. **Folder only:** In the **Explorer**, right-click a **folder** (or an image file) → **View Images 🌄**. Only that directory (and subfolders) is indexed in that panel; the editor tab title reflects the folder.
 
-## More Screenshots
+## More documentation
 
-![screenshot](https://public-img-1253867148.cos.ap-singapore.myqcloud.com/img-in-docs/47kZgCa.png)
-![screenshot](https://public-img-1253867148.cos.ap-singapore.myqcloud.com/img-in-docs/5lCM0JMb.png)
+- See **[CHANGELOG.md](./CHANGELOG.md)** for release notes
+- Issues: [GitHub Issues](https://github.com/ZhangJian1713/vscode-image-viewer/issues)
 
 ## Questions or feedback
 

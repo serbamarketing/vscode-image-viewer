@@ -1,5 +1,6 @@
 import { ReloadOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components'
+import { BACKGROUND_CHECKERBOARD, BACKGROUND_TRANSPARENT } from '../../constants'
 
 export const StyledFolderOpenTwoTone = styled.span`
   visibility: hidden;
@@ -9,6 +10,13 @@ export const StyledFolderOpenTwoTone = styled.span`
 `
 
 export const StyledPreviewImages = styled.div`
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+
   .ant-collapse > .ant-collapse-item > .ant-collapse-header{
     padding: 8px 12px;
   }
@@ -35,12 +43,24 @@ export const StyledPreviewImages = styled.div`
 export const StyleTopRows = styled.div`
   position: relative;
   margin: 0 0 10px 0;
+  flex-shrink: 0;
+`
+
+/** Flex slot between toolbar and list; clips so only the list scrolls. */
+export const StyleMainScrollSlot = styled.div`
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 `
 
 export const StyleImageList = styled.div`
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   width: 100%;
+  grid-template-columns: repeat(var(--iv-grid-cols, 8), minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
 `
 
 export const StyleImage = styled.div`
@@ -48,13 +68,25 @@ export const StyleImage = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: start;
-  align-items: center;
-  margin: 0 12px 12px 0;
+  align-items: stretch;
+  min-width: 0;
 
   div .ant-image {
     position: relative;
     display: flex;
     align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    border: none;
+    box-shadow: none;
+  }
+
+  div .ant-image img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border: none;
+    outline: none;
   }
 `
 
@@ -68,14 +100,35 @@ interface IStyleSquareProps {
   isSelected: boolean
   color: string
 }
+
+const checkerboardBg = `
+  background-color: #e8e8e8;
+  background-image:
+    linear-gradient(45deg, #c8c8c8 25%, transparent 25%),
+    linear-gradient(-45deg, #c8c8c8 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #c8c8c8 75%),
+    linear-gradient(-45deg, transparent 75%, #c8c8c8 75%);
+  background-size: 6px 6px;
+  background-position: 0 0, 0 3px, 3px -3px, -3px 0;
+`
+
 export const StyleSquare = styled.span<IStyleSquareProps>`
   display: inline-block;
   width: 20px;
   height: 20px;
-  height: ${(props) => props.isSelected ? '26px' : '20px'};
-  width: ${(props) => props.isSelected ? '26px' : '20px'};
-  border: 1px solid #ddd;
-  background-color: ${(props) => props.color};
+  height: ${(props) => (props.isSelected ? '26px' : '20px')};
+  width: ${(props) => (props.isSelected ? '26px' : '20px')};
+  border: 1px solid var(--iv-thumb-edge, var(--vscode-widget-border, #ddd));
+  box-sizing: border-box;
+  ${(props) => {
+    if (props.color === BACKGROUND_CHECKERBOARD) {
+      return checkerboardBg
+    }
+    if (props.color === BACKGROUND_TRANSPARENT) {
+      return 'background-color: transparent;'
+    }
+    return `background-color: ${props.color};`
+  }}
   position: relative;
   top: 5px;
   margin-right: 12px;
@@ -88,14 +141,17 @@ export const StyleRowTitle = styled.span`
 `
 
 export const StyledPicCount = styled.span`
-  color: #8bbacc;
+  color: var(--iv-secondary-fg, var(--vscode-descriptionForeground));
   margin: 0 0 0 12px;
 `
 
-export const StyledImgsContainer = styled.div`
-  height: calc(100vh - 228px);
+/** Scrollbar colors themed via `.iv-image-list-scroll` in `antd-global.css`. */
+export const StyledImgsContainer = styled.div.attrs({ className: 'iv-image-list-scroll' })`
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  border: 1px solid #eee;
+  border: 1px solid var(--vscode-panel-border, #eee);
   border-left: none;
   border-right: none;
 `
@@ -108,18 +164,37 @@ export const StyledBetweenWrapper = styled.div`
   justify-content: space-between;
 `
 
-export const StyledSettingOutlined = styled(SettingOutlined)`
-  line-height: 32px;
-  font-size: 20px;
+const toolbarIconSlot = `
   position: absolute;
-  right: 26px;
-  top: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  color: inherit;
+  opacity: 0.9;
+  box-sizing: border-box;
+`
+
+export const StyledSettingOutlined = styled(SettingOutlined)`
+  ${toolbarIconSlot}
+  right: 56px;
+  font-size: 20px;
+`
+
+export const StyledThemeToggle = styled.span`
+  ${toolbarIconSlot}
+  right: 28px;
+  font-size: 20px;
+  cursor: pointer;
 `
 
 export const StyledReloadOutlined = styled(ReloadOutlined)`
-  line-height: 32px;
-  color: #2678dd;
-  position: absolute;
+  ${toolbarIconSlot}
   right: 0;
-  top: 0;
+  /* +0.5px vs siblings for slightly clearer strokes without drawing focus */
+  font-size: 20.5px;
 `

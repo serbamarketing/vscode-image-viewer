@@ -1,7 +1,8 @@
-import { IConfig } from "types";
+import { IConfig } from 'types'
 import { utils } from '@easy_vscode/core'
-import fs from 'fs'
+import * as fs from 'fs'
 import json5 from 'json5'
+import { BACKGROUND_TRANSPARENT } from '../../constants'
 
 const { getProjectPath, envVars } = utils
 
@@ -9,11 +10,11 @@ const DEFAULT_CONFIG: IConfig = {
   showImageTypes: ['.svg', '.png', '.jpeg', '.jpg', '.ico', '.gif', '.webp', '.bmp', '.tif', '.tiff', '.apng', '.avif'],
   keyword: '',
   activeKey: [],
-  backgroundColor: '#fff',
-  size: 100,
+  backgroundColor: BACKGROUND_TRANSPARENT,
   includeFolders: [],
   excludeFolders: [],
-
+  uiTheme: 'follow',
+  imageSort: 'nameAsc'
 }
 
 const PROJECTS_CONFIG_DIRECTORY = 'projectsConfig'
@@ -50,8 +51,9 @@ export const readLocalConfigFile = (): IConfig => {
       return DEFAULT_CONFIG
     }
     const fileContents = fs.readFileSync(configFilePath, 'utf8');
-    return json5.parse(fileContents);
+    return json5.parse(fileContents) as IConfig
   } catch (e) {
-    console.error(e);
+    console.error(e)
+    return DEFAULT_CONFIG
   }
 }
