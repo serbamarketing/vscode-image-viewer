@@ -23,6 +23,7 @@ export interface IConfig {
   excludeFolders: string[],
   uiTheme?: WebviewUiThemePreference,
   imageSort?: ImageSortMode,
+  showFileName?: boolean,
   /**
    * Injected by the extension only in `GET_CONFIG` responses (`vscode.env.language`);
    * never persisted to the local config file.

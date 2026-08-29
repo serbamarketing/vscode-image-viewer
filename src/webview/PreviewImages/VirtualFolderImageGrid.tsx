@@ -30,6 +30,7 @@ export interface VirtualFolderImageGridProps {
   enableLazyLoad: boolean
   everAutoPreview: boolean
   clickFilePath: string
+  showFileName?: boolean
   onAutoPreview: () => void
   onDeleteImage: (fullPath: string) => void
   /** Open the external lightbox at the image's global index. */
@@ -55,6 +56,7 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
   enableLazyLoad,
   everAutoPreview,
   clickFilePath,
+  showFileName = true,
   onAutoPreview,
   onDeleteImage,
   onOpenPreview,
@@ -66,7 +68,7 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
   const gap = IMAGE_TILE_GAP
   const cellW = gridSquareCellWidthPx(listInnerWidth, cols)
   const thumbTargetMaxEdgePx = useMemo(() => thumbDecodeMaxEdgeFromCellWidth(cellW), [cellW])
-  const showFileCaption = cols <= IMAGE_GRID_SHOW_FILENAME_MAX_COLS
+  const showFileCaption = cols <= IMAGE_GRID_SHOW_FILENAME_MAX_COLS && showFileName
   const captionBelowPx = showFileCaption ? CAPTION_BELOW_PX_FULL : 0
   /** One row: thumb square + caption; gap between rows is `IMAGE_TILE_GAP` (same as StyleImageList). */
   const rowBody = cellW + captionBelowPx

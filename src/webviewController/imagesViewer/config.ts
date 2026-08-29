@@ -14,7 +14,8 @@ const DEFAULT_CONFIG: IConfig = {
   includeFolders: [],
   excludeFolders: [],
   uiTheme: 'follow',
-  imageSort: 'nameAsc'
+  imageSort: 'nameAsc',
+  showFileName: true
 }
 
 const PROJECTS_CONFIG_DIRECTORY = 'projectsConfig'

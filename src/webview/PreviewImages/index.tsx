@@ -209,6 +209,7 @@ const PreviewImages: React.FC = () => {
     ''
   const [clickFilePath, setClickFilePath] = useState<string>(initClickFilePath)
   const [everAutoPreview, setEverAutoPreview] = useState(false)
+  const [showFileName, setShowFileName] = useState<boolean>(true)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [includeFolders, setIncludeFolders] = useState<string[]>([])
   const [excludeFolders, setExcludeFolders] = useState<string[]>([])
@@ -609,6 +610,7 @@ const PreviewImages: React.FC = () => {
       setExcludeFolders(data.excludeFolders)
       setUiThemePreference(data.uiTheme ?? 'follow')
       setImageSort(data.imageSort ?? 'nameAsc')
+      setShowFileName(data.showFileName ?? true)
       setHostUiLanguage(typeof data.hostUiLanguage === 'string' ? data.hostUiLanguage : undefined)
       configHydratedRef.current = true
     })
@@ -627,10 +629,11 @@ const PreviewImages: React.FC = () => {
         showImageTypes,
         keyword,
         activeKey,
-        imageSort
+        imageSort,
+        showFileName
       }
     })
-  }, [showImageTypes, backgroundColor, size, imageGridColumns, activeKey, keyword, imageSort])
+  }, [showImageTypes, backgroundColor, size, imageGridColumns, activeKey, keyword, imageSort, showFileName])
 
   useEffect(() => {
     if (!configHydratedRef.current) {
@@ -709,9 +712,17 @@ const PreviewImages: React.FC = () => {
                   onChange={(values) => setShowImageTypes(values as string[])}
                 />
               </span>
-              <span>
-                Total count:<StyledPicCount style={{ marginLeft: '6px' }}>{imgs.length}</StyledPicCount>
-              </span>
+              <Space size='large'>
+                <Checkbox
+                  checked={showFileName}
+                  onChange={(e) => setShowFileName(e.target.checked)}
+                >
+                  Show filename
+                </Checkbox>
+                <span>
+                  Total count:<StyledPicCount style={{ marginLeft: '6px' }}>{imgs.length}</StyledPicCount>
+                </span>
+              </Space>
             </StyledBetweenWrapper>
           </StyleTopRows>
           {/* Background */}
@@ -805,7 +816,7 @@ const PreviewImages: React.FC = () => {
                             </span>
                           }
                           key={path}
-                        >
+                          >
                           {panelOpen ? (
                             <VirtualFolderImageGrid
                               scrollTick={listScrollTick}
@@ -817,6 +828,7 @@ const PreviewImages: React.FC = () => {
                               enableLazyLoad={enableLazyLoad}
                               everAutoPreview={everAutoPreview}
                               clickFilePath={clickFilePath}
+                              showFileName={showFileName}
                               onAutoPreview={onAutoPreview}
                               onDeleteImage={onDeleteImage}
                               onOpenPreview={handleOpenPreview}
