@@ -5,9 +5,10 @@ import React, { useCallback, useMemo } from 'react'
 import { MESSAGE_CMD } from '../../../constants'
 import type { IImage } from '../imageTypes'
 import { StyleImageInfo, StyleImageName } from './style'
-import { CopyOutlined, DeleteOutlined } from '@ant-design/icons'
+import { CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons'
 
 const MenuAction = {
+  RenameFile: 'rename-file',
   CopyFileName: 'copy-file-name',
   CopyPath: 'copy-path',
   CopyBase64: 'copy-base64',
@@ -24,12 +25,13 @@ const dropdownGetPopupContainer = () => document.body
 type ImageInfoProps = {
   img: IImage
   onDeleteImage: (fullPath: string) => void
+  onRenameImage?: (img: IImage) => void
   /** When false (dense grid / high column count), skip the file name row under the thumb. */
   showFileName?: boolean
 }
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
-const ImageInfo: React.FC<ImageInfoProps> = ({ img, onDeleteImage, showFileName = true }) => {
+const ImageInfo: React.FC<ImageInfoProps> = ({ img, onDeleteImage, onRenameImage, showFileName = true }) => {
   if (!showFileName) {
     return null
   }
@@ -55,6 +57,11 @@ const ImageInfo: React.FC<ImageInfoProps> = ({ img, onDeleteImage, showFileName 
 
   const menuItems: MenuProps['items'] = useMemo(
     () => [
+      {
+        label: 'Rename',
+        key: MenuAction.RenameFile,
+        icon: <EditOutlined style={{ color: LINK_ICON_COLOR }} />
+      },
       {
         label: `Copy "${img.fileName}"`,
         key: MenuAction.CopyFileName,
@@ -82,7 +89,9 @@ const ImageInfo: React.FC<ImageInfoProps> = ({ img, onDeleteImage, showFileName 
   const handleMenuClick = useCallback<NonNullable<MenuProps['onClick']>>(
     (info) => {
       const key = String(info.key)
-      if (key === MenuAction.CopyFileName) {
+      if (key === MenuAction.RenameFile) {
+        onRenameImage?.(img)
+      } else if (key === MenuAction.CopyFileName) {
         showCopySuccess(img.fileName)
       } else if (key === MenuAction.CopyPath) {
         showCopySuccess(img.path)
@@ -92,7 +101,7 @@ const ImageInfo: React.FC<ImageInfoProps> = ({ img, onDeleteImage, showFileName 
         onClickDelete()
       }
     },
-    [img.fileName, img.path, onClickCopyBase64, onClickDelete, showCopySuccess]
+    [img, onRenameImage, onClickCopyBase64, onClickDelete, showCopySuccess]
   )
 
   return (

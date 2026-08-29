@@ -5,12 +5,14 @@ import {
   ConfigProvider,
   Empty,
   Input,
+  Modal,
   Select,
   Skeleton,
   Slider,
   Space,
   Spin,
-  Tooltip
+  Tooltip,
+  message
 } from 'antd'
 import {
   BgColorsOutlined,
@@ -210,9 +212,133 @@ const PreviewImages: React.FC = () => {
   const [clickFilePath, setClickFilePath] = useState<string>(initClickFilePath)
   const [everAutoPreview, setEverAutoPreview] = useState(false)
   const [showFileName, setShowFileName] = useState<boolean>(true)
+  const [selectedFullPaths, setSelectedFullPaths] = useState<Set<string>>(() => new Set())
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [includeFolders, setIncludeFolders] = useState<string[]>([])
   const [excludeFolders, setExcludeFolders] = useState<string[]>([])
+
+  const handleToggleSelect = useCallback((fullPath: string) => {
+    setSelectedFullPaths((prev) => {
+      const next = new Set(prev)
+      if (next.has(fullPath)) {
+        next.delete(fullPath)
+      } else {
+        next.add(fullPath)
+      }
+      return next
+    })
+  }, [])
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedFullPaths((prev) => {
+      const next = new Set(prev)
+      for (const img of showImgs) {
+        next.add(img.fullPath)
+      }
+      return next
+    })
+  }, [showImgs])
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedFullPaths(new Set())
+  }, [])
+
+  const [renameModalVisible, setRenameModalVisible] = useState(false)
+  const [renameTargetImg, setRenameTargetImg] = useState<IImage | null>(null)
+  const [renameInputValue, setRenameInputValue] = useState('')
+  const [renameLoading, setRenameLoading] = useState(false)
+
+  const handleOpenRenameModal = useCallback((targetImg: IImage) => {
+    setRenameTargetImg(targetImg)
+    const lastDotIndex = targetImg.fileName.lastIndexOf('.')
+    const baseName = lastDotIndex > 0 ? targetImg.fileName.substring(0, lastDotIndex) : targetImg.fileName
+    setRenameInputValue(baseName)
+    setRenameModalVisible(true)
+  }, [])
+
+  const handleConfirmRename = useCallback(() => {
+    if (!renameTargetImg) return
+    const inputRaw = renameInputValue.trim()
+
+    if (!inputRaw) {
+      message.error('Filename cannot be empty')
+      return
+    }
+
+    if (/[\\/:*?"<>|]/.test(inputRaw)) {
+      message.error('Filename contains invalid characters (\\ / : * ? " < > |)')
+      return
+    }
+
+    const lastDotIndex = renameTargetImg.fileName.lastIndexOf('.')
+    const originalExt = lastDotIndex > 0 ? renameTargetImg.fileName.substring(lastDotIndex) : ''
+
+    let finalNewName = inputRaw
+    if (originalExt && !inputRaw.toLowerCase().endsWith(originalExt.toLowerCase())) {
+      const inputDotIndex = inputRaw.lastIndexOf('.')
+      if (inputDotIndex <= 0) {
+        finalNewName = `${inputRaw}${originalExt}`
+      }
+    }
+
+    if (finalNewName === renameTargetImg.fileName) {
+      setRenameModalVisible(false)
+      setRenameTargetImg(null)
+      return
+    }
+
+    const oldFullPath = renameTargetImg.fullPath
+    setRenameLoading(true)
+
+    callVscode(
+      {
+        cmd: MESSAGE_CMD.RENAME_FILE,
+        data: { filePath: oldFullPath, newName: finalNewName }
+      },
+      (res: { code?: number; success?: boolean; error?: string; newFullPath?: string; newName?: string }) => {
+        setRenameLoading(false)
+        if (res && (res.success || res.code === 0) && res.newFullPath && res.newName) {
+          const newFullPath = res.newFullPath
+          const newName = res.newName
+          const newFileType = newName.substring(newName.lastIndexOf('.') + 1).toLowerCase()
+
+          setImgs((prevImgs) =>
+            prevImgs.map((img) => {
+              if (img.fullPath !== oldFullPath) return img
+              const pathSep = img.path.includes('\\') ? '\\' : '/'
+              const newRelPath = img.path.substring(0, img.path.lastIndexOf(pathSep) + 1) + newName
+              const newVscodePath = img.vscodePath.includes(encodeURIComponent(oldFullPath))
+                ? img.vscodePath.replace(encodeURIComponent(oldFullPath), encodeURIComponent(newFullPath))
+                : img.vscodePath
+
+              return {
+                ...img,
+                fullPath: newFullPath,
+                fileName: newName,
+                fileType: newFileType,
+                path: newRelPath,
+                vscodePath: newVscodePath
+              }
+            })
+          )
+
+          setSelectedFullPaths((prevSelected) => {
+            if (!prevSelected.has(oldFullPath)) return prevSelected
+            const next = new Set(prevSelected)
+            next.delete(oldFullPath)
+            next.add(newFullPath)
+            return next
+          })
+
+          message.success(`Successfully renamed to "${newName}"`)
+          setRenameModalVisible(false)
+          setRenameTargetImg(null)
+        } else {
+          message.error(res?.error || 'Failed to rename file')
+        }
+      }
+    )
+  }, [renameTargetImg, renameInputValue])
   /** `vscode.env.language` from host `GET_CONFIG` (announcement modal locale). */
   const [hostUiLanguage, setHostUiLanguage] = useState<string | undefined>(undefined)
   const [imageSort, setImageSort] = useState<ImageSortMode>('nameAsc')
@@ -761,13 +887,18 @@ const PreviewImages: React.FC = () => {
           {/* Expand/Collapse All */}
           <StyleTopRows>
             <StyledBetweenWrapper>
-              <Space>
+              <Space wrap>
                 <span style={{ color: 'var(--iv-secondary-fg, var(--vscode-descriptionForeground))' }}>
                   Search result:{' '}
                   <span style={{ color: 'var(--iv-primary-fg, var(--vscode-foreground))', fontWeight: 600 }}>
                     {showImgs.length}
                   </span>
                 </span>
+                {selectedFullPaths.size > 0 && (
+                  <span style={{ color: 'var(--vscode-focusBorder, #007acc)', fontWeight: 600, marginLeft: '4px' }}>
+                    ({selectedFullPaths.size} selected)
+                  </span>
+                )}
                 <Tooltip
                   placement='right'
                   title={`When there are more than ${THRESHOLD_ALL_COLLAPSED} images(after being filtered) being displayed, all directories are collapsed by default.`}
@@ -778,6 +909,10 @@ const PreviewImages: React.FC = () => {
                 </Tooltip>
                 <Button onClick={handleExpandAllFolders}>Expand All</Button>
                 <Button onClick={() => setActiveKey([])}>Collapse All</Button>
+                <Button onClick={handleSelectAll}>Select All</Button>
+                {selectedFullPaths.size > 0 && (
+                  <Button onClick={handleClearSelection}>Clear Selection</Button>
+                )}
                 <Tooltip title='Applies inside each folder only; folder order is unchanged.'>
                   <Select<ImageSortMode>
                     aria-label='Sort images within folder'
@@ -829,8 +964,11 @@ const PreviewImages: React.FC = () => {
                               everAutoPreview={everAutoPreview}
                               clickFilePath={clickFilePath}
                               showFileName={showFileName}
+                              selectedFullPaths={selectedFullPaths}
+                              onToggleSelect={handleToggleSelect}
                               onAutoPreview={onAutoPreview}
                               onDeleteImage={onDeleteImage}
+                              onRenameImage={handleOpenRenameModal}
                               onOpenPreview={handleOpenPreview}
                               onThumbResolved={handleThumbResolved}
                             />
@@ -854,6 +992,36 @@ const PreviewImages: React.FC = () => {
           onClose={() => setShowSettingsModal(false)}
           onApply={handleApplySettings}
         />
+      )}
+      {renameModalVisible && renameTargetImg && (
+        <Modal
+          title='Rename Image'
+          open={renameModalVisible}
+          confirmLoading={renameLoading}
+          onOk={handleConfirmRename}
+          onCancel={() => {
+            if (!renameLoading) {
+              setRenameModalVisible(false)
+              setRenameTargetImg(null)
+            }
+          }}
+        >
+          <div style={{ marginBottom: 12 }}>
+            Current name: <strong>{renameTargetImg.fileName}</strong>
+          </div>
+          <Input
+            autoFocus
+            value={renameInputValue}
+            onChange={(e) => setRenameInputValue(e.target.value)}
+            onPressEnter={handleConfirmRename}
+            addonAfter={
+              renameTargetImg.fileName.lastIndexOf('.') > 0
+                ? renameTargetImg.fileName.substring(renameTargetImg.fileName.lastIndexOf('.'))
+                : undefined
+            }
+            placeholder='Enter new filename'
+          />
+        </Modal>
       )}
       <ImagePreview
         key={lightboxKey}

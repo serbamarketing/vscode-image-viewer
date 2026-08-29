@@ -31,8 +31,11 @@ export interface VirtualFolderImageGridProps {
   everAutoPreview: boolean
   clickFilePath: string
   showFileName?: boolean
+  selectedFullPaths?: Set<string>
+  onToggleSelect?: (fullPath: string) => void
   onAutoPreview: () => void
   onDeleteImage: (fullPath: string) => void
+  onRenameImage?: (img: IImage) => void
   /** Open the external lightbox at the image's global index. */
   onOpenPreview: (img: IImage) => void
   /** Receive resolved grid thumbnail URL for lightbox minimap. */
@@ -57,8 +60,11 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
   everAutoPreview,
   clickFilePath,
   showFileName = true,
+  selectedFullPaths,
+  onToggleSelect,
   onAutoPreview,
   onDeleteImage,
+  onRenameImage,
   onOpenPreview,
   onThumbResolved
 }) => {
@@ -157,8 +163,10 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
               imageGridColumns={cols}
               thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
               onThumbResolved={onThumbResolved}
+              isSelected={selectedFullPaths?.has(img.fullPath)}
+              onToggleSelect={() => onToggleSelect?.(img.fullPath)}
             />
-            <ImageInfo img={img} onDeleteImage={onDeleteImage} showFileName={showFileCaption} />
+            <ImageInfo img={img} onDeleteImage={onDeleteImage} onRenameImage={onRenameImage} showFileName={showFileCaption} />
           </StyleImage>
         ))}
       </StyleImageList>
@@ -214,8 +222,10 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
                       imageGridColumns={cols}
                       thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
                       onThumbResolved={onThumbResolved}
+                      isSelected={selectedFullPaths?.has(img.fullPath)}
+                      onToggleSelect={() => onToggleSelect?.(img.fullPath)}
                     />
-                    <ImageInfo img={img} onDeleteImage={onDeleteImage} showFileName={showFileCaption} />
+                    <ImageInfo img={img} onDeleteImage={onDeleteImage} onRenameImage={onRenameImage} showFileName={showFileCaption} />
                   </StyleImage>
                 )
               })}

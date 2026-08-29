@@ -71,8 +71,24 @@ const messageHandlers = new Map([
   [
     MESSAGE_CMD.RENAME_FILE,
     (message: IMessage, w: Webview) => {
-      renameFile(message.data.filePath, message.data.newName)
-      invokeCallback(viewType, message, successResp, w)
+      try {
+        const filePath = String(message.data?.filePath ?? '')
+        const newName = String(message.data?.newName ?? '').trim()
+        if (!filePath || !newName) {
+          invokeCallback(viewType, message, { code: 1, error: 'Invalid file path or new name' }, w)
+          return
+        }
+        const dirPath = path.dirname(filePath)
+        const newFullPath = path.join(dirPath, newName)
+        if (fs.existsSync(newFullPath) && path.resolve(newFullPath) !== path.resolve(filePath)) {
+          invokeCallback(viewType, message, { code: 1, error: `File "${newName}" already exists` }, w)
+          return
+        }
+        fs.renameSync(filePath, newFullPath)
+        invokeCallback(viewType, message, { code: 0, success: true, newFullPath, newName }, w)
+      } catch (err: any) {
+        invokeCallback(viewType, message, { code: 1, error: err?.message || 'Failed to rename file' }, w)
+      }
     }
   ],
   [

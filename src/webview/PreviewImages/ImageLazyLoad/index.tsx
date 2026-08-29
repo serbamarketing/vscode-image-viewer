@@ -4,7 +4,7 @@
 import { EyeOutlined } from '@ant-design/icons'
 import { callVscode } from '@easy_vscode/webview'
 import { useInViewport } from 'ahooks'
-import { Image, Spin } from 'antd'
+import { Checkbox, Image, Spin } from 'antd'
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { IImage } from '../imageTypes'
@@ -30,10 +30,12 @@ interface IImageLazyLoadProps {
   thumbTargetMaxEdgePx: number
   /** Report resolved thumbnail URL so lightbox minimap can avoid full-size source. */
   onThumbResolved?: (_vscodePath: string, _thumbSrc: string) => void
+  isSelected?: boolean
+  onToggleSelect?: () => void
 }
 /* eslint-enable no-unused-vars */
 
-const CellShell = styled.div`
+const CellShell = styled.div<{ $isSelected?: boolean }>`
   width: 100%;
   aspect-ratio: 1 / 1;
   min-width: 0;
@@ -42,6 +44,31 @@ const CellShell = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  outline: ${(props) => (props.$isSelected ? '2px solid var(--vscode-focusBorder, #007acc)' : 'none')};
+  outline-offset: -2px;
+  border-radius: 2px;
+`
+
+const SelectionCheckboxWrap = styled.div<{ $isSelected?: boolean }>`
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 10;
+  cursor: pointer;
+  padding: 2px 3px;
+  line-height: 1;
+  border-radius: 3px;
+  background: ${(props) => (props.$isSelected ? 'var(--vscode-editor-background, #ffffff)' : 'rgba(0, 0, 0, 0.45)')};
+  border: 1px solid ${(props) => (props.$isSelected ? 'var(--vscode-focusBorder, #007acc)' : 'rgba(255, 255, 255, 0.6)')};
+  opacity: ${(props) => (props.$isSelected ? 1 : 0)};
+  transition: opacity 0.15s ease-in-out, background 0.15s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  ${CellShell}:hover & {
+    opacity: 1;
+  }
 `
 
 const ImgFit = styled.div`
@@ -103,7 +130,9 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
   indexInFolder,
   imageGridColumns,
   thumbTargetMaxEdgePx,
-  onThumbResolved
+  onThumbResolved,
+  isSelected = false,
+  onToggleSelect
 }) => {
   const { scrollRootRef, ioGeneration, registry, reveal } = useThumbLoadBudget()
   const shellRef = useRef<HTMLDivElement>(null)
@@ -279,7 +308,22 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
   const imgBg = imageInlineBackground(backgroundColor)
 
   return (
-    <CellShell ref={shellRef}>
+    <CellShell ref={shellRef} $isSelected={isSelected}>
+      <SelectionCheckboxWrap
+        $isSelected={isSelected}
+        onClick={(e) => {
+          e.stopPropagation()
+          e.preventDefault()
+          onToggleSelect?.()
+        }}
+      >
+        <Checkbox
+          checked={isSelected}
+          onChange={(e) => {
+            e.stopPropagation()
+          }}
+        />
+      </SelectionCheckboxWrap>
       {!isShow ? (
         <LoadingCenter>
           <Spin />
