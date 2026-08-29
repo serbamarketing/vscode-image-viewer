@@ -481,9 +481,7 @@ const PreviewImages: React.FC = () => {
     setActiveKey(isVeryMany ? [] : [...arr])
   }, [imgs, keyword, showImageTypes])
 
-  const onDeleteImage = useCallback((filePath: string) => {
-    setImgs((prev) => prev.filter((img) => img.fullPath !== filePath))
-  }, [])
+
 
   const handleClickOpenFolder = (e, path: string) => {
     e.stopPropagation()
@@ -635,6 +633,126 @@ const PreviewImages: React.FC = () => {
       return changed ? next : prev
     })
   }, [globalPreviewFlat])
+
+  const executeDeleteRPC = useCallback(
+    (targetPaths: string[]) => {
+      if (targetPaths.length === 0) return
+
+      callVscode(
+        {
+          cmd: MESSAGE_CMD.DELETE_FILE,
+          data: { filePaths: targetPaths }
+        },
+        (res: { code?: number; success?: boolean; deletedPaths?: string[]; failedPaths?: Array<{ path: string; error: string }> }) => {
+          const deletedPaths = res?.deletedPaths ?? []
+          const failedPaths = res?.failedPaths ?? []
+
+          if (deletedPaths.length > 0) {
+            const deletedSet = new Set(deletedPaths)
+
+            // 1. Remove deleted images from imgs state
+            setImgs((prev) => prev.filter((img) => !deletedSet.has(img.fullPath)))
+
+            // 2. Remove deleted images from selectedFullPaths
+            setSelectedFullPaths((prevSelected) => {
+              const next = new Set(prevSelected)
+              for (const p of deletedPaths) {
+                next.delete(p)
+              }
+              return next
+            })
+
+            // 3. Close Lightbox if active preview image was deleted
+            if (lightboxVisible && globalPreviewFlat[lightboxDefaultIndex]) {
+              if (deletedSet.has(globalPreviewFlat[lightboxDefaultIndex].fullPath)) {
+                setLightboxVisible(false)
+              }
+            }
+          }
+
+          if (failedPaths.length === 0 && deletedPaths.length > 0) {
+            message.success(
+              deletedPaths.length === 1
+                ? 'Successfully deleted 1 image'
+                : `Successfully deleted ${deletedPaths.length} images`
+            )
+          } else if (failedPaths.length > 0) {
+            message.error(
+              `Failed to delete ${failedPaths.length} of ${targetPaths.length} file(s).`
+            )
+          }
+        }
+      )
+    },
+    [lightboxVisible, globalPreviewFlat, lightboxDefaultIndex]
+  )
+
+  const onDeleteImage = useCallback(
+    (targetFullPath?: string) => {
+      let targetPaths: string[] = []
+
+      if (targetFullPath) {
+        if (selectedFullPaths.has(targetFullPath) && selectedFullPaths.size > 1) {
+          targetPaths = Array.from(selectedFullPaths)
+        } else {
+          targetPaths = [targetFullPath]
+        }
+      } else {
+        targetPaths = Array.from(selectedFullPaths)
+      }
+
+      if (targetPaths.length === 0) return
+
+      const count = targetPaths.length
+      let title = ''
+      if (count === 1) {
+        const targetImg = imgs.find((img) => img.fullPath === targetPaths[0])
+        const fileName = targetImg ? targetImg.fileName : 'this image'
+        title = `Delete "${fileName}"?`
+      } else {
+        title = `Delete ${count} images?`
+      }
+
+      Modal.confirm({
+        title,
+        content: 'This action cannot be undone. Are you sure you want to proceed?',
+        okText: 'Delete',
+        okType: 'danger',
+        cancelText: 'Cancel',
+        onOk: () => executeDeleteRPC(targetPaths)
+      })
+    },
+    [selectedFullPaths, imgs, executeDeleteRPC]
+  )
+
+  const handleRevealInExplorer = useCallback(
+    (targetImg?: IImage) => {
+      let filePathToReveal = targetImg?.fullPath
+      if (!filePathToReveal && selectedFullPaths.size > 0) {
+        filePathToReveal = Array.from(selectedFullPaths)[0]
+      }
+      if (filePathToReveal) {
+        callVscode({
+          cmd: MESSAGE_CMD.REVEAL_IN_EXPLORER,
+          data: { filePath: filePathToReveal }
+        })
+      }
+    },
+    [selectedFullPaths]
+  )
+
+  const handleCopySelectedPaths = useCallback(() => {
+    if (selectedFullPaths.size === 0) return
+    const selectedImgs = imgs.filter((img) => selectedFullPaths.has(img.fullPath))
+    const pathsText = selectedImgs.map((img) => img.path).join('\n')
+    navigator.clipboard.writeText(pathsText).then(() => {
+      message.success(
+        selectedFullPaths.size === 1
+          ? `Successfully copied path for 1 image`
+          : `Successfully copied paths for ${selectedFullPaths.size} images`
+      )
+    })
+  }, [imgs, selectedFullPaths])
 
   /** Global flat index keyed by vscodePath — used to find the clicked image's index. */
   const globalIndexByVscodePath = useMemo(() => {
@@ -911,7 +1029,14 @@ const PreviewImages: React.FC = () => {
                 <Button onClick={() => setActiveKey([])}>Collapse All</Button>
                 <Button onClick={handleSelectAll}>Select All</Button>
                 {selectedFullPaths.size > 0 && (
-                  <Button onClick={handleClearSelection}>Clear Selection</Button>
+                  <>
+                    <Button onClick={handleClearSelection}>Clear Selection</Button>
+                    <Button onClick={handleCopySelectedPaths}>Copy Path ({selectedFullPaths.size})</Button>
+                    <Button onClick={() => handleRevealInExplorer()}>Reveal in Explorer</Button>
+                    <Button danger onClick={() => onDeleteImage()}>
+                      Delete ({selectedFullPaths.size})
+                    </Button>
+                  </>
                 )}
                 <Tooltip title='Applies inside each folder only; folder order is unchanged.'>
                   <Select<ImageSortMode>
@@ -969,6 +1094,7 @@ const PreviewImages: React.FC = () => {
                               onAutoPreview={onAutoPreview}
                               onDeleteImage={onDeleteImage}
                               onRenameImage={handleOpenRenameModal}
+                              onRevealInExplorer={handleRevealInExplorer}
                               onOpenPreview={handleOpenPreview}
                               onThumbResolved={handleThumbResolved}
                             />

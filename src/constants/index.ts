@@ -21,6 +21,8 @@ export const MESSAGE_CMD = {
   GET_CONFIG: 'getConfig',
   /** Open https URL or other URI in system browser (extension host `openExternal`). */
   OPEN_EXTERNAL_URI: 'openExternalUri',
+  /** Reveal file in VS Code File Explorer sidebar (`vscode.commands.executeCommand('revealInExplorer', uri)`). */
+  REVEAL_IN_EXPLORER: 'revealInExplorer',
 }
 
 export const EXTENSION_NAME = 'vscode-infra'

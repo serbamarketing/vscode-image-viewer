@@ -36,6 +36,7 @@ export interface VirtualFolderImageGridProps {
   onAutoPreview: () => void
   onDeleteImage: (fullPath: string) => void
   onRenameImage?: (img: IImage) => void
+  onRevealInExplorer?: (img: IImage) => void
   /** Open the external lightbox at the image's global index. */
   onOpenPreview: (img: IImage) => void
   /** Receive resolved grid thumbnail URL for lightbox minimap. */
@@ -65,6 +66,7 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
   onAutoPreview,
   onDeleteImage,
   onRenameImage,
+  onRevealInExplorer,
   onOpenPreview,
   onThumbResolved
 }) => {
@@ -166,7 +168,13 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
               isSelected={selectedFullPaths?.has(img.fullPath)}
               onToggleSelect={() => onToggleSelect?.(img.fullPath)}
             />
-            <ImageInfo img={img} onDeleteImage={onDeleteImage} onRenameImage={onRenameImage} showFileName={showFileCaption} />
+            <ImageInfo
+              img={img}
+              onDeleteImage={onDeleteImage}
+              onRenameImage={onRenameImage}
+              onRevealInExplorer={onRevealInExplorer}
+              showFileName={showFileCaption}
+            />
           </StyleImage>
         ))}
       </StyleImageList>
@@ -225,7 +233,13 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
                       isSelected={selectedFullPaths?.has(img.fullPath)}
                       onToggleSelect={() => onToggleSelect?.(img.fullPath)}
                     />
-                    <ImageInfo img={img} onDeleteImage={onDeleteImage} onRenameImage={onRenameImage} showFileName={showFileCaption} />
+                    <ImageInfo
+                      img={img}
+                      onDeleteImage={onDeleteImage}
+                      onRenameImage={onRenameImage}
+                      onRevealInExplorer={onRevealInExplorer}
+                      showFileName={showFileCaption}
+                    />
                   </StyleImage>
                 )
               })}

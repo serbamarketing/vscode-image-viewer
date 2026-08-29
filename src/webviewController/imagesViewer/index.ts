@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { Uri, ViewColumn, Webview, env as vscodeEnv } from 'vscode'
+import { Uri, ViewColumn, Webview, commands, env as vscodeEnv } from 'vscode'
 import { utils, webviewUtils } from '@easy_vscode/core'
 import { IWebview, IWebviewProps, IMessage } from '@easy_vscode/core/lib/types'
 import { DIST_WEBVIEW_INDEX_HTML, EXTENSION_COMMANDS, MESSAGE_CMD, WEBVIEW_NAMES } from '../../constants'
@@ -94,8 +94,48 @@ const messageHandlers = new Map([
   [
     MESSAGE_CMD.DELETE_FILE,
     (message: IMessage, w: Webview) => {
-      deleteFile(message.data.filePath)
-      invokeCallback(viewType, message, successResp, w)
+      const rawSingle = message.data?.filePath
+      const rawList = message.data?.filePaths
+      let targets: string[] = []
+
+      if (Array.isArray(rawList)) {
+        targets = rawList.map((p) => String(p)).filter(Boolean)
+      } else if (typeof rawSingle === 'string' && rawSingle.length > 0) {
+        targets = [rawSingle]
+      }
+
+      const deletedPaths: string[] = []
+      const failedPaths: Array<{ path: string; error: string }> = []
+
+      for (const filePath of targets) {
+        try {
+          if (!fs.existsSync(filePath)) {
+            failedPaths.push({ path: filePath, error: 'File does not exist' })
+            continue
+          }
+          const stat = fs.statSync(filePath)
+          if (!stat.isFile()) {
+            failedPaths.push({ path: filePath, error: 'Target is not a file' })
+            continue
+          }
+          fs.unlinkSync(filePath)
+          deletedPaths.push(filePath)
+        } catch (err: any) {
+          failedPaths.push({ path: filePath, error: err?.message || 'Failed to delete file' })
+        }
+      }
+
+      invokeCallback(
+        viewType,
+        message,
+        {
+          code: 0,
+          success: failedPaths.length === 0,
+          deletedPaths,
+          failedPaths
+        },
+        w
+      )
     }
   ],
   [
@@ -169,6 +209,15 @@ const messageHandlers = new Map([
       const raw = String((message.data as { url?: string } | undefined)?.url ?? '').trim()
       if (raw) {
         void vscodeEnv.openExternal(Uri.parse(raw))
+      }
+    }
+  ],
+  [
+    MESSAGE_CMD.REVEAL_IN_EXPLORER,
+    (message: IMessage) => {
+      const filePath = String(message.data?.filePath ?? '').trim()
+      if (filePath) {
+        void commands.executeCommand('revealInExplorer', Uri.file(filePath))
       }
     }
   ],
