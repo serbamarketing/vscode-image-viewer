@@ -336,15 +336,19 @@ div .ant-tooltip {
   max-width: none;
 }
 
-/* Dropdown: do not inherit centered trigger; keep menu items left-aligned */
+/* Dropdown: do not inherit centered trigger; keep menu items strictly left-aligned */
+.ant-dropdown .ant-dropdown-menu-item,
+.ant-dropdown-menu-item,
+.ant-dropdown-menu-title-content,
 .ant-dropdown .ant-menu-vertical .ant-menu-item,
 .ant-dropdown .ant-menu-vertical .ant-menu-submenu-title {
-  text-align: left;
-  justify-content: flex-start;
+  text-align: left !important;
+  justify-content: flex-start !important;
 }
 
+.ant-dropdown .ant-dropdown-menu-item .ant-dropdown-menu-title-content,
 .ant-dropdown .ant-menu-vertical .ant-menu-item .ant-menu-title-content {
-  text-align: left;
+  text-align: left !important;
 }
 
 .ant-modal-header {

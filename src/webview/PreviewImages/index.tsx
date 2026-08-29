@@ -216,6 +216,7 @@ const PreviewImages: React.FC = () => {
     sliderPosFromColumns(columnsFromApproxThumbWidth(DEFAULT_COLUMN_LAYOUT_GUESS_PX))
   )
   const scopeHintFsPathRef = useRef<string | null>(readWindowCommandScopeHint())
+  const currentProjectPath = useRef('')
   const initClickFilePath =
     (typeof window !== 'undefined' && commandArgToFsPath(
       (window as Window & { commandArgs?: unknown[] }).commandArgs?.[0]
@@ -323,11 +324,82 @@ const PreviewImages: React.FC = () => {
           setSelectedFullPaths(new Set())
           refreshImgs()
         } else {
-          message.error(res.failedPaths?.[0]?.error || 'Failed to group files')
+          message.error(res.failedPaths?.[0]?.error || 'Failed to move files')
         }
       }
     )
   }
+
+  const generateTimestampFolderName = () => {
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const yyyy = now.getFullYear()
+    const mm = pad(now.getMonth() + 1)
+    const dd = pad(now.getDate())
+    const hh = pad(now.getHours())
+    const min = pad(now.getMinutes())
+    const ss = pad(now.getSeconds())
+    return `Folder_${yyyy}${mm}${dd}_${hh}${min}${ss}`
+  }
+
+  const resolveAbsPath = useCallback((inputPath: string) => {
+    const raw = inputPath.trim()
+    if (!raw) return ''
+    if (/^[a-zA-Z]:[\\/]/.test(raw) || raw.startsWith('\\') || raw.startsWith('/')) {
+      return raw.replace(/\//g, '\\')
+    }
+    const baseDir = scopeHintFsPathRef?.current || currentProjectPath?.current || ''
+    const root = baseDir.replace(/\//g, '\\').replace(/\\+$/, '')
+    return root ? `${root}\\${raw.replace(/\//g, '\\')}` : raw.replace(/\//g, '\\')
+  }, [])
+
+  const generatedCreateFolderCMD = useMemo(() => {
+    let folderNames: string[] = []
+    if (createFolderTab === 'single') {
+      const name = singleFolderName.trim()
+      if (name) folderNames = [name]
+    } else {
+      folderNames = bulkFolderNames
+        .split('\n')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    }
+    if (folderNames.length === 0) return ''
+
+    const mkdirParts = folderNames.map((f) => {
+      const abs = resolveAbsPath(f)
+      return `if not exist "${abs}" mkdir "${abs}"`
+    })
+    return mkdirParts.join(' & ')
+  }, [createFolderTab, singleFolderName, bulkFolderNames, resolveAbsPath])
+
+  const generatedGroupFolderCMD = useMemo(() => {
+    const rawName = groupFolderName.trim() || generateTimestampFolderName()
+    const absDir = resolveAbsPath(rawName)
+    const filePaths = Array.from(selectedFullPaths)
+    if (!absDir || filePaths.length === 0) return ''
+
+    const moveParts = filePaths.map((fp) => {
+      const srcAbs = fp.replace(/\//g, '\\')
+      return `move "${srcAbs}" "${absDir}\\"`
+    })
+
+    return `if not exist "${absDir}" mkdir "${absDir}" & ${moveParts.join(' & ')}`
+  }, [groupFolderName, selectedFullPaths, resolveAbsPath])
+
+  const generatedMoveFolderCMD = useMemo(() => {
+    const rawDir = moveFolderPath.trim()
+    const absDir = resolveAbsPath(rawDir)
+    const filePaths = Array.from(selectedFullPaths)
+    if (!absDir || filePaths.length === 0) return ''
+
+    const moveParts = filePaths.map((fp) => {
+      const srcAbs = fp.replace(/\//g, '\\')
+      return `move "${srcAbs}" "${absDir}\\"`
+    })
+
+    return `if not exist "${absDir}" mkdir "${absDir}" & ${moveParts.join(' & ')}`
+  }, [moveFolderPath, selectedFullPaths, resolveAbsPath])
 
   const handleOpenMoveFolderModal = () => {
     setMoveFolderPath('')
@@ -515,7 +587,6 @@ const PreviewImages: React.FC = () => {
   const pendingLegacySizeRef = useRef<number | null>(null)
   /** True when config has neither `imageGridColumns` nor legacy `size`; apply once real width known. */
   const needWidthBasedColumnsRef = useRef(false)
-  const currentProjectPath = useRef('')
 
   /** Lightbox (right-image-preview) state */
   const [lightboxVisible, setLightboxVisible] = useState(false)
@@ -1107,6 +1178,7 @@ const PreviewImages: React.FC = () => {
     callVscode({
       cmd: MESSAGE_CMD.GET_CONFIG,
     }, (data: IConfig) => {
+      if (!data) return
       setBackgroundColor(data.backgroundColor ?? DEFAULT_BACKGROUND_COLOR)
       const igc = data.imageGridColumns
       if (typeof igc === 'number' && igc >= 1 && igc <= 50) {
@@ -1116,7 +1188,7 @@ const PreviewImages: React.FC = () => {
         pendingLegacySizeRef.current = null
         needWidthBasedColumnsRef.current = false
       } else {
-        pendingLegacySizeRef.current = typeof data.size === 'number' ? data.size : null
+        pendingLegacySizeRef.current = typeof data?.size === 'number' ? data.size : null
         needWidthBasedColumnsRef.current = pendingLegacySizeRef.current === null
       }
 
@@ -1127,10 +1199,10 @@ const PreviewImages: React.FC = () => {
         needWidthBasedColumnsRef.current = false
       }
       setShowImageTypes(normalizeConfiguredImageTypes(data.showImageTypes ?? []))
-      setKeyword(data.keyword)
-      setActiveKey(data.activeKey)
-      setIncludeFolders(data.includeFolders)
-      setExcludeFolders(data.excludeFolders)
+      setKeyword(data.keyword ?? '')
+      setActiveKey(Array.isArray(data.activeKey) ? data.activeKey : [])
+      setIncludeFolders(Array.isArray(data.includeFolders) ? data.includeFolders : [])
+      setExcludeFolders(Array.isArray(data.excludeFolders) ? data.excludeFolders : [])
       setUiThemePreference(data.uiTheme ?? 'follow')
       setImageSort(data.imageSort ?? 'nameAsc')
       setShowFileName(data.showFileName ?? true)
@@ -1377,14 +1449,32 @@ const PreviewImages: React.FC = () => {
       </Spin>
     </div>
 
-      {/* Modal: Create Single / Bulk Folder */}
+      {/* Modal: Create Single / Bulk Folder CMD Generator */}
       <Modal
-        title='Create New Folder(s)'
+        title='Create Folder (CMD Generator)'
         open={createFolderModalVisible}
-        onOk={handleConfirmCreateFolder}
         onCancel={() => setCreateFolderModalVisible(false)}
-        confirmLoading={createFolderLoading}
-        okText='Create'
+        width={580}
+        footer={[
+          <Button
+            key='copyCmd'
+            type='primary'
+            icon={<CopyOutlined />}
+            disabled={!generatedCreateFolderCMD}
+            onClick={() => {
+              if (generatedCreateFolderCMD) {
+                navigator.clipboard.writeText(generatedCreateFolderCMD).then(() => {
+                  message.success('Copied CMD command to clipboard!')
+                })
+              }
+            }}
+          >
+            Copy CMD Command
+          </Button>,
+          <Button key='close' onClick={() => setCreateFolderModalVisible(false)}>
+            Close
+          </Button>
+        ]}
       >
         <Tabs
           activeKey={createFolderTab}
@@ -1398,7 +1488,6 @@ const PreviewImages: React.FC = () => {
                   placeholder='Folder name (e.g. Screenshots)'
                   value={singleFolderName}
                   onChange={(e) => setSingleFolderName(e.target.value)}
-                  onPressEnter={handleConfirmCreateFolder}
                   autoFocus
                 />
               )
@@ -1408,7 +1497,7 @@ const PreviewImages: React.FC = () => {
               label: 'Bulk Create (Multiple)',
               children: (
                 <Input.TextArea
-                  rows={5}
+                  rows={4}
                   placeholder={'Enter folder names, one per line:\nFolderA\nFolderB\nFolderC'}
                   value={bulkFolderNames}
                   onChange={(e) => setBulkFolderNames(e.target.value)}
@@ -1417,51 +1506,121 @@ const PreviewImages: React.FC = () => {
             }
           ]}
         />
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--vscode-descriptionForeground)' }}>
+            1-Line CMD Command (Paste into Terminal):
+          </div>
+          <Input.TextArea
+            readOnly
+            rows={3}
+            value={generatedCreateFolderCMD}
+            placeholder='Generated 1-line CMD command will appear here...'
+            style={{ fontFamily: 'monospace', fontSize: 12 }}
+          />
+        </div>
       </Modal>
 
-      {/* Modal: Group Selected Images to New Folder */}
+      {/* Modal: Group Selected Images CMD Generator */}
       <Modal
-        title={`Group Selected Images (${selectedFullPaths.size})`}
+        title={`Group ${selectedFullPaths.size} Selected Image(s) (CMD Generator)`}
         open={groupFolderModalVisible}
-        onOk={handleConfirmGroupFolder}
         onCancel={() => setGroupFolderModalVisible(false)}
-        confirmLoading={groupFolderLoading}
-        okText='Group & Move'
+        width={580}
+        footer={[
+          <Button
+            key='copyCmd'
+            type='primary'
+            icon={<CopyOutlined />}
+            disabled={!generatedGroupFolderCMD}
+            onClick={() => {
+              if (generatedGroupFolderCMD) {
+                navigator.clipboard.writeText(generatedGroupFolderCMD).then(() => {
+                  message.success('Copied CMD command to clipboard!')
+                })
+              }
+            }}
+          >
+            Copy CMD Command
+          </Button>,
+          <Button key='close' onClick={() => setGroupFolderModalVisible(false)}>
+            Close
+          </Button>
+        ]}
       >
-        <div style={{ marginBottom: 12 }}>
-          Enter a folder name for the selected {selectedFullPaths.size} image(s):
+        <div style={{ marginBottom: 8 }}>
+          Folder name for the selected {selectedFullPaths.size} image(s):
         </div>
         <Input
           placeholder='Folder name (Leave blank for auto timestamp, e.g. Folder_20260829_093000)'
           value={groupFolderName}
           onChange={(e) => setGroupFolderName(e.target.value)}
-          onPressEnter={handleConfirmGroupFolder}
           autoFocus
         />
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--vscode-descriptionForeground)' }}>
+            1-Line CMD Command (Paste into Terminal):
+          </div>
+          <Input.TextArea
+            readOnly
+            rows={4}
+            value={generatedGroupFolderCMD}
+            placeholder='Generated 1-line CMD command will appear here...'
+            style={{ fontFamily: 'monospace', fontSize: 12 }}
+          />
+        </div>
       </Modal>
 
-      {/* Modal: Move Selected Images to Destination Folder */}
+      {/* Modal: Move Selected Images CMD Generator */}
       <Modal
-        title={`Move Selected Images (${selectedFullPaths.size})`}
+        title={`Move ${selectedFullPaths.size} Selected Image(s) (CMD Generator)`}
         open={moveFolderModalVisible}
-        onOk={handleConfirmMoveFolder}
         onCancel={() => setMoveFolderModalVisible(false)}
-        confirmLoading={moveFolderLoading}
-        okText='Move'
+        width={580}
+        footer={[
+          <Button
+            key='copyCmd'
+            type='primary'
+            icon={<CopyOutlined />}
+            disabled={!generatedMoveFolderCMD}
+            onClick={() => {
+              if (generatedMoveFolderCMD) {
+                navigator.clipboard.writeText(generatedMoveFolderCMD).then(() => {
+                  message.success('Copied CMD command to clipboard!')
+                })
+              }
+            }}
+          >
+            Copy CMD Command
+          </Button>,
+          <Button key='close' onClick={() => setMoveFolderModalVisible(false)}>
+            Close
+          </Button>
+        ]}
       >
-        <div style={{ marginBottom: 12 }}>
-          Destination folder path for {selectedFullPaths.size} image(s):
+        <div style={{ marginBottom: 8 }}>
+          Destination folder path or name for {selectedFullPaths.size} image(s):
         </div>
         <Space.Compact style={{ width: '100%' }}>
           <Input
             placeholder='Destination folder path or folder name'
             value={moveFolderPath}
             onChange={(e) => setMoveFolderPath(e.target.value)}
-            onPressEnter={handleConfirmMoveFolder}
             autoFocus
           />
           <Button onClick={handleBrowseMoveFolder}>Browse...</Button>
         </Space.Compact>
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: 'var(--vscode-descriptionForeground)' }}>
+            1-Line CMD Command (Paste into Terminal):
+          </div>
+          <Input.TextArea
+            readOnly
+            rows={4}
+            value={generatedMoveFolderCMD}
+            placeholder='Generated 1-line CMD command will appear here...'
+            style={{ fontFamily: 'monospace', fontSize: 12 }}
+          />
+        </div>
       </Modal>
       {showSettingsModal && (
         <SettingsModal

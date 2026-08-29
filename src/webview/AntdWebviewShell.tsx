@@ -12,6 +12,51 @@ export interface WebviewRootProps {
   components: Record<string, React.FC>
 }
 
+class WebviewErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Webview render error:', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 24, textAlign: 'center', color: 'var(--vscode-foreground)' }}>
+          <h3 style={{ marginBottom: 12 }}>Image Viewer encountered a render issue</h3>
+          <p style={{ color: 'var(--vscode-errorForeground, #f48771)', marginBottom: 16 }}>
+            {this.state.error?.message || 'Unknown render error'}
+          </p>
+          <button
+            style={{
+              padding: '6px 16px',
+              cursor: 'pointer',
+              background: 'var(--vscode-button-background)',
+              color: 'var(--vscode-button-foreground)',
+              border: 'none',
+              borderRadius: 4
+            }}
+            onClick={() => window.location.reload()}
+          >
+            Reload Viewer
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 /** Align Ant Design with VS Code or user-forced light/dark (no webview reload). */
 export const AntdWebviewShell: React.FC<WebviewRootProps> = ({ components }) => {
   const [vscodeIsDark, setVscodeIsDark] = React.useState(isVscodeThemeDark)
@@ -79,41 +124,43 @@ export const AntdWebviewShell: React.FC<WebviewRootProps> = ({ components }) => 
   }, [uiThemePreference, effectiveIsDark])
 
   let currentView = (window as any).currentView
-  if (currentView === NO_CURRENT_VIEW) {
-    currentView = Object.keys(components)[0]
+  if (!currentView || currentView === NO_CURRENT_VIEW || !components[currentView]) {
+    currentView = 'PreviewImages' in components ? 'PreviewImages' : Object.keys(components)[0]
   }
-  const CurrentComponent = components[currentView]
+  const CurrentComponent = components[currentView] || (() => <div>No Component Found</div>)
 
   return (
-    <WebviewThemeProvider value={themeCtx}>
-      <ConfigProvider
-        theme={{
-          algorithm: effectiveIsDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
-          token: {
-            colorLink:
-              uiThemePreference === 'follow' ? 'var(--vscode-textLink-foreground)' : '#1677ff',
-            colorTextDescription:
-              'var(--iv-secondary-fg, var(--vscode-descriptionForeground))',
-            colorTextSecondary:
-              'var(--iv-secondary-fg, var(--vscode-descriptionForeground))',
-            colorTextPlaceholder:
-              'var(--iv-placeholder-fg, var(--vscode-input-placeholderForeground))'
-          }
-        }}
-        getPopupContainer={(triggerNode) => {
-          if (triggerNode) return triggerNode
-          return document.body
-        }}
-      >
-        <div
-          className='webview-app-root'
-          data-ui-theme={uiThemePreference}
-          data-effective-light={effectiveIsDark ? 'false' : 'true'}
-          style={rootWrapStyle}
+    <WebviewErrorBoundary>
+      <WebviewThemeProvider value={themeCtx}>
+        <ConfigProvider
+          theme={{
+            algorithm: effectiveIsDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
+            token: {
+              colorLink:
+                uiThemePreference === 'follow' ? 'var(--vscode-textLink-foreground)' : '#1677ff',
+              colorTextDescription:
+                'var(--iv-secondary-fg, var(--vscode-descriptionForeground))',
+              colorTextSecondary:
+                'var(--iv-secondary-fg, var(--vscode-descriptionForeground))',
+              colorTextPlaceholder:
+                'var(--iv-placeholder-fg, var(--vscode-input-placeholderForeground))'
+            }
+          }}
+          getPopupContainer={(triggerNode) => {
+            if (triggerNode) return triggerNode
+            return document.body
+          }}
         >
-          <CurrentComponent />
-        </div>
-      </ConfigProvider>
-    </WebviewThemeProvider>
+          <div
+            className='webview-app-root'
+            data-ui-theme={uiThemePreference}
+            data-effective-light={effectiveIsDark ? 'false' : 'true'}
+            style={rootWrapStyle}
+          >
+            <CurrentComponent />
+          </div>
+        </ConfigProvider>
+      </WebviewThemeProvider>
+    </WebviewErrorBoundary>
   )
 }
