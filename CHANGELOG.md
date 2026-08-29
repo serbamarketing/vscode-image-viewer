@@ -2,6 +2,11 @@
 
 All notable changes to the **Image Viewer SE (Spawn Era)** extension will be documented in this file.
 
+## [1.1.4] - 2026-08-29
+
+### Changed
+- **Documentation**: Change preview image.
+
 ## [1.1.3] - 2026-08-29
 
 ### Added

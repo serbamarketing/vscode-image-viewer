@@ -4,7 +4,7 @@
   "displayName": "Image Viewer SE",
   "description": "Image Viewer SE (Spawn Era) — High-performance image browser for VS Code & Cursor. Multi-column grid, fast thumbnail caching, full-screen lightbox preview, Base64/path copy, drag & drop, file management, and folder-scoped tabs.",
   "icon": "assets/logo.png",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "author": "Ardi <spawnerastudio@gmail.com>",
   "homepage": "https://github.com/ZhangJian1713/vscode-image-viewer",
   "license": "MIT",

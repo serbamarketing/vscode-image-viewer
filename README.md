@@ -10,16 +10,16 @@
 ## 📷 Screenshots
 
 ### Gallery & Layout Overview
-![Image Viewer SE Main Gallery](assets/Screenshot_1.png)
+![Image Viewer SE Main Gallery](https://raw.githubusercontent.com/spawnerastudio/image-viewer-se/refs/heads/main/Screenshot_1.png)
 
 ### High-Resolution Image Preview & Inspection
-![Image Viewer SE Lightbox Preview](assets/Screenshot_2.png)
+![Image Viewer SE Lightbox Preview](https://raw.githubusercontent.com/spawnerastudio/image-viewer-se/refs/heads/main/Screenshot_4.png)
 
 ### Folder Accordions & Multi-Selection Tools
-![Image Viewer SE Folder View](assets/Screenshot_3.png)
+![Image Viewer SE Sort](https://raw.githubusercontent.com/spawnerastudio/image-viewer-se/refs/heads/main/Screenshot_2.png)
 
 ### Display Settings & Aspect Ratio Options
-![Image Viewer SE Settings Modal](assets/Screenshot_4.png)
+![Image Viewer SE Settings Modal](https://raw.githubusercontent.com/spawnerastudio/image-viewer-se/refs/heads/main/Screenshot_3.png)
 
 ---
 
