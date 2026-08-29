@@ -165,9 +165,6 @@ export const StyledBetweenWrapper = styled.div`
 `
 
 const toolbarIconSlot = `
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
   width: 28px;
   height: 32px;
   display: inline-flex;
@@ -177,24 +174,20 @@ const toolbarIconSlot = `
   color: inherit;
   opacity: 0.9;
   box-sizing: border-box;
+  cursor: pointer;
 `
 
 export const StyledSettingOutlined = styled(SettingOutlined)`
   ${toolbarIconSlot}
-  right: 56px;
   font-size: 20px;
 `
 
 export const StyledThemeToggle = styled.span`
   ${toolbarIconSlot}
-  right: 28px;
   font-size: 20px;
-  cursor: pointer;
 `
 
 export const StyledReloadOutlined = styled(ReloadOutlined)`
   ${toolbarIconSlot}
-  right: 0;
-  /* +0.5px vs siblings for slightly clearer strokes without drawing focus */
   font-size: 20.5px;
 `

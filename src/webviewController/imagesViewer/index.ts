@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { Uri, ViewColumn, Webview, commands, env as vscodeEnv } from 'vscode'
+import { Uri, ViewColumn, Webview, commands, env as vscodeEnv, window, OpenDialogOptions } from 'vscode'
 import { utils, webviewUtils } from '@easy_vscode/core'
 import { IWebview, IWebviewProps, IMessage } from '@easy_vscode/core/lib/types'
 import { DIST_WEBVIEW_INDEX_HTML, EXTENSION_COMMANDS, MESSAGE_CMD, WEBVIEW_NAMES } from '../../constants'
@@ -219,6 +219,99 @@ const messageHandlers = new Map([
       if (filePath) {
         void commands.executeCommand('revealInExplorer', Uri.file(filePath))
       }
+    }
+  ],
+  [
+    MESSAGE_CMD.CREATE_FOLDERS,
+    (message: IMessage, w: Webview) => {
+      const dirPaths: string[] = Array.isArray(message.data?.dirPaths) ? message.data.dirPaths : []
+      const created: string[] = []
+      const failed: { path: string; error: string }[] = []
+
+      for (const rawPath of dirPaths) {
+        const trimmed = String(rawPath ?? '').trim()
+        if (!trimmed) continue
+        try {
+          const absPath = path.isAbsolute(trimmed) ? trimmed : path.join(getProjectPath(), trimmed)
+          if (!fs.existsSync(absPath)) {
+            fs.mkdirSync(absPath, { recursive: true })
+          }
+          created.push(absPath)
+        } catch (err: any) {
+          failed.push({ path: trimmed, error: err?.message || 'Failed to create folder' })
+        }
+      }
+
+      invokeCallback(viewType, message, { code: 0, success: failed.length === 0, created, failed }, w)
+    }
+  ],
+  [
+    MESSAGE_CMD.MOVE_FILES,
+    (message: IMessage, w: Webview) => {
+      const filePaths: string[] = Array.isArray(message.data?.filePaths) ? message.data.filePaths : []
+      const targetDirRaw = String(message.data?.targetDir ?? '').trim()
+      const targetDir = path.isAbsolute(targetDirRaw) ? targetDirRaw : path.join(getProjectPath(), targetDirRaw)
+
+      const movedPaths: { from: string; to: string }[] = []
+      const failedPaths: { path: string; error: string }[] = []
+
+      try {
+        if (!fs.existsSync(targetDir)) {
+          fs.mkdirSync(targetDir, { recursive: true })
+        }
+      } catch (err: any) {
+        invokeCallback(
+          viewType,
+          message,
+          { code: 1, success: false, error: `Failed to create target directory: ${err?.message}` },
+          w
+        )
+        return
+      }
+
+      for (const srcPath of filePaths) {
+        try {
+          if (!fs.existsSync(srcPath)) {
+            failedPaths.push({ path: srcPath, error: 'Source file does not exist' })
+            continue
+          }
+          const baseName = path.basename(srcPath)
+          const destPath = path.join(targetDir, baseName)
+          if (srcPath === destPath) {
+            movedPaths.push({ from: srcPath, to: destPath })
+            continue
+          }
+          fs.renameSync(srcPath, destPath)
+          movedPaths.push({ from: srcPath, to: destPath })
+        } catch (err: any) {
+          failedPaths.push({ path: srcPath, error: err?.message || 'Failed to move file' })
+        }
+      }
+
+      invokeCallback(
+        viewType,
+        message,
+        { code: 0, success: failedPaths.length === 0, targetDir, movedPaths, failedPaths },
+        w
+      )
+    }
+  ],
+  [
+    MESSAGE_CMD.SELECT_FOLDER_DIALOG,
+    (message: IMessage, w: Webview) => {
+      void (async () => {
+        const defaultUri = Uri.file(getProjectPath())
+        const options: OpenDialogOptions = {
+          defaultUri,
+          canSelectFiles: false,
+          canSelectFolders: true,
+          canSelectMany: false,
+          openLabel: 'Select Destination Folder'
+        }
+        const result = await window.showOpenDialog(options)
+        const selectedPath = result && result.length > 0 ? result[0].fsPath : null
+        invokeCallback(viewType, message, { selectedPath }, w)
+      })()
     }
   ],
 ])

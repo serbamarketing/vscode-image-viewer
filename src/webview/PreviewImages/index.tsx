@@ -3,24 +3,36 @@ import {
   Checkbox,
   Collapse,
   ConfigProvider,
+  Dropdown,
   Empty,
   Input,
   Modal,
+  MenuProps,
   Select,
   Skeleton,
   Slider,
   Space,
   Spin,
+  Tabs,
+  Tag,
   Tooltip,
   message
 } from 'antd'
 import {
   BgColorsOutlined,
+  CheckSquareOutlined,
+  CloseSquareOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  DownOutlined,
+  FolderAddOutlined,
+  FolderOpenOutlined,
   FolderOpenTwoTone,
   InfoCircleOutlined,
   MoonOutlined,
   SearchOutlined,
-  SunOutlined
+  SunOutlined,
+  UpOutlined
 } from '@ant-design/icons'
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ImagePreview } from 'right-image-preview'
@@ -212,10 +224,165 @@ const PreviewImages: React.FC = () => {
   const [clickFilePath, setClickFilePath] = useState<string>(initClickFilePath)
   const [everAutoPreview, setEverAutoPreview] = useState(false)
   const [showFileName, setShowFileName] = useState<boolean>(true)
+  const [showFolders, setShowFolders] = useState<boolean>(true)
+  const [cellAspectRatio, setCellAspectRatio] = useState<'16:9' | '4:3' | '1:1'>('16:9')
+  const [headerCollapsed, setHeaderCollapsed] = useState<boolean>(false)
   const [selectedFullPaths, setSelectedFullPaths] = useState<Set<string>>(() => new Set())
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [includeFolders, setIncludeFolders] = useState<string[]>([])
   const [excludeFolders, setExcludeFolders] = useState<string[]>([])
+
+  // Create Folder modal state
+  const [createFolderModalVisible, setCreateFolderModalVisible] = useState(false)
+  const [createFolderTab, setCreateFolderTab] = useState<'single' | 'bulk'>('single')
+  const [singleFolderName, setSingleFolderName] = useState('')
+  const [bulkFolderNames, setBulkFolderNames] = useState('')
+  const [createFolderLoading, setCreateFolderLoading] = useState(false)
+
+  // Group To Folder modal state
+  const [groupFolderModalVisible, setGroupFolderModalVisible] = useState(false)
+  const [groupFolderName, setGroupFolderName] = useState('')
+  const [groupFolderLoading, setGroupFolderLoading] = useState(false)
+
+  // Move To Folder modal state
+  const [moveFolderModalVisible, setMoveFolderModalVisible] = useState(false)
+  const [moveFolderPath, setMoveFolderPath] = useState('')
+  const [moveFolderLoading, setMoveFolderLoading] = useState(false)
+
+  const handleOpenCreateFolderModal = () => {
+    setSingleFolderName('')
+    setBulkFolderNames('')
+    setCreateFolderModalVisible(true)
+  }
+
+  const handleConfirmCreateFolder = () => {
+    let foldersToCreate: string[] = []
+    if (createFolderTab === 'single') {
+      const trimmed = singleFolderName.trim()
+      if (!trimmed) {
+        message.warning('Please enter a folder name')
+        return
+      }
+      foldersToCreate = [trimmed]
+    } else {
+      foldersToCreate = bulkFolderNames
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      if (foldersToCreate.length === 0) {
+        message.warning('Please enter at least one folder name')
+        return
+      }
+    }
+
+    setCreateFolderLoading(true)
+    callVscode(
+      { cmd: MESSAGE_CMD.CREATE_FOLDERS, data: { dirPaths: foldersToCreate } },
+      (res: { code: number; success: boolean; created?: string[]; failed?: any[] }) => {
+        setCreateFolderLoading(false)
+        setCreateFolderModalVisible(false)
+        if (res.success || (res.created && res.created.length > 0)) {
+          message.success(`Successfully created ${res.created?.length ?? 1} folder(s)`)
+          refreshImgs()
+        } else {
+          message.error(res.failed?.[0]?.error || 'Failed to create folder(s)')
+        }
+      }
+    )
+  }
+
+  const handleOpenGroupFolderModal = () => {
+    setGroupFolderName('')
+    setGroupFolderModalVisible(true)
+  }
+
+  const handleConfirmGroupFolder = () => {
+    let folderName = groupFolderName.trim()
+    if (!folderName) {
+      const now = new Date()
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const yyyy = now.getFullYear()
+      const mm = pad(now.getMonth() + 1)
+      const dd = pad(now.getDate())
+      const hh = pad(now.getHours())
+      const min = pad(now.getMinutes())
+      const ss = pad(now.getSeconds())
+      folderName = `Folder_${yyyy}${mm}${dd}_${hh}${min}${ss}`
+    }
+
+    const filePaths = Array.from(selectedFullPaths)
+    setGroupFolderLoading(true)
+
+    callVscode(
+      { cmd: MESSAGE_CMD.MOVE_FILES, data: { filePaths, targetDir: folderName } },
+      (res: { code: number; success: boolean; movedPaths?: any[]; failedPaths?: any[] }) => {
+        setGroupFolderLoading(false)
+        setGroupFolderModalVisible(false)
+        if (res.success || (res.movedPaths && res.movedPaths.length > 0)) {
+          message.success(`Grouped ${res.movedPaths?.length ?? 0} files into "${folderName}"`)
+          setSelectedFullPaths(new Set())
+          refreshImgs()
+        } else {
+          message.error(res.failedPaths?.[0]?.error || 'Failed to group files')
+        }
+      }
+    )
+  }
+
+  const handleOpenMoveFolderModal = () => {
+    setMoveFolderPath('')
+    setMoveFolderModalVisible(true)
+  }
+
+  const handleBrowseMoveFolder = () => {
+    callVscode({ cmd: MESSAGE_CMD.SELECT_FOLDER_DIALOG }, (res: { selectedPath?: string | null }) => {
+      if (res?.selectedPath) {
+        setMoveFolderPath(res.selectedPath)
+      }
+    })
+  }
+
+  const handleConfirmMoveFolder = () => {
+    const targetDir = moveFolderPath.trim()
+    if (!targetDir) {
+      message.warning('Please enter or browse for a destination folder path')
+      return
+    }
+    const filePaths = Array.from(selectedFullPaths)
+    setMoveFolderLoading(true)
+    callVscode(
+      { cmd: MESSAGE_CMD.MOVE_FILES, data: { filePaths, targetDir } },
+      (res: { code: number; success: boolean; movedPaths?: any[]; failedPaths?: any[] }) => {
+        setMoveFolderLoading(false)
+        setMoveFolderModalVisible(false)
+        if (res.success || (res.movedPaths && res.movedPaths.length > 0)) {
+          message.success(`Moved ${res.movedPaths?.length ?? 0} files to "${targetDir}"`)
+          setSelectedFullPaths(new Set())
+          refreshImgs()
+        }
+      }
+    )
+  }
+
+  const displayModeValue = showFolders
+    ? (showFileName ? 'both' : 'foldersOnly')
+    : (showFileName ? 'flatWithName' : 'flatDense')
+
+  const handleDisplayModeChange = useCallback((val: string) => {
+    if (val === 'both') {
+      setShowFileName(true)
+      setShowFolders(true)
+    } else if (val === 'foldersOnly') {
+      setShowFileName(false)
+      setShowFolders(true)
+    } else if (val === 'flatWithName') {
+      setShowFileName(true)
+      setShowFolders(false)
+    } else if (val === 'flatDense') {
+      setShowFileName(false)
+      setShowFolders(false)
+    }
+  }, [])
 
   const handleToggleSelect = useCallback((fullPath: string) => {
     setSelectedFullPaths((prev) => {
@@ -468,6 +635,8 @@ const PreviewImages: React.FC = () => {
     setShowImageTypes([...allFileTypes])
   }
 
+  const folderStateInitializedRef = useRef(false)
+
   useEffect(() => {
     let showImgs = imgs
     showImgs = showImgs
@@ -478,7 +647,13 @@ const PreviewImages: React.FC = () => {
     arr = Array.from(new Set(arr)).sort()
     setAllPaths(arr)
     const isVeryMany = showImgs.length > THRESHOLD_ALL_COLLAPSED
-    setActiveKey(isVeryMany ? [] : [...arr])
+
+    if (!folderStateInitializedRef.current) {
+      folderStateInitializedRef.current = true
+      setActiveKey(isVeryMany ? [] : [...arr])
+    } else {
+      setActiveKey((prev) => prev.filter((k) => arr.includes(k)))
+    }
   }, [imgs, keyword, showImageTypes])
 
 
@@ -754,6 +929,121 @@ const PreviewImages: React.FC = () => {
     })
   }, [imgs, selectedFullPaths])
 
+  const actionMenuItems: MenuProps['items'] = useMemo(
+    () => [
+      {
+        key: 'createFolder',
+        label: 'Create Folder...'
+      },
+      {
+        key: 'selectAll',
+        label: 'Select All'
+      },
+      {
+        key: 'clearSelection',
+        label: 'Clear Selection',
+        disabled: selectedFullPaths.size === 0
+      },
+      { type: 'divider' },
+      {
+        key: 'group',
+        label: `Group To Folder (${selectedFullPaths.size})`,
+        disabled: selectedFullPaths.size === 0
+      },
+      {
+        key: 'move',
+        label: `Move To Folder (${selectedFullPaths.size})`,
+        disabled: selectedFullPaths.size === 0
+      },
+      {
+        key: 'copyPath',
+        label: `Copy Path (${selectedFullPaths.size})`,
+        disabled: selectedFullPaths.size === 0
+      },
+      {
+        key: 'reveal',
+        label: 'Reveal in Explorer',
+        disabled: selectedFullPaths.size !== 1
+      },
+      { type: 'divider' },
+      {
+        key: 'delete',
+        label: `Delete Selected (${selectedFullPaths.size})`,
+        danger: true,
+        disabled: selectedFullPaths.size === 0
+      }
+    ],
+    [selectedFullPaths.size]
+  )
+
+  const handleActionMenuClick: NonNullable<MenuProps['onClick']> = useCallback(
+    (info) => {
+      const key = String(info.key)
+      if (key === 'createFolder') {
+        handleOpenCreateFolderModal()
+      } else if (key === 'selectAll') {
+        handleSelectAll()
+      } else if (key === 'clearSelection') {
+        handleClearSelection()
+      } else if (key === 'group') {
+        handleOpenGroupFolderModal()
+      } else if (key === 'move') {
+        handleOpenMoveFolderModal()
+      } else if (key === 'copyPath') {
+        handleCopySelectedPaths()
+      } else if (key === 'reveal') {
+        handleRevealInExplorer()
+      } else if (key === 'delete') {
+        onDeleteImage()
+      }
+    },
+    [
+      handleOpenCreateFolderModal,
+      handleSelectAll,
+      handleClearSelection,
+      handleOpenGroupFolderModal,
+      handleOpenMoveFolderModal,
+      handleCopySelectedPaths,
+      handleRevealInExplorer,
+      onDeleteImage
+    ]
+  )
+  const handleExpandAllFolders = useCallback(() => {
+    const keys = [...allPaths]
+    if (keys.length === 0) {
+      return
+    }
+    requestAnimationFrame(() => {
+      setActiveKey(keys)
+    })
+  }, [allPaths])
+
+  const folderMenuItems: MenuProps['items'] = useMemo(
+    () => [
+      {
+        key: 'expand',
+        label: 'Expand All Folders'
+      },
+      {
+        key: 'collapse',
+        label: 'Collapse All Folders'
+      }
+    ],
+    []
+  )
+
+  const handleFolderMenuClick: NonNullable<MenuProps['onClick']> = useCallback(
+    (info) => {
+      const key = String(info.key)
+      if (key === 'expand') {
+        handleExpandAllFolders()
+      } else if (key === 'collapse') {
+        setActiveKey([])
+      }
+    },
+    [handleExpandAllFolders]
+  )
+
   /** Global flat index keyed by vscodePath — used to find the clicked image's index. */
   const globalIndexByVscodePath = useMemo(() => {
     const m = new Map<string, number>()
@@ -806,17 +1096,6 @@ const PreviewImages: React.FC = () => {
     })
   }, [])
 
-  /** One `setActiveKey` (no Spin overlay). rAF so the click frame stays light before the big commit. */
-  const handleExpandAllFolders = useCallback(() => {
-    const keys = [...allPaths]
-    if (keys.length === 0) {
-      return
-    }
-    requestAnimationFrame(() => {
-      setActiveKey(keys)
-    })
-  }, [allPaths])
-
   const onAutoPreview = useCallback(() => {
     setEverAutoPreview(true)
   }, [])
@@ -855,6 +1134,9 @@ const PreviewImages: React.FC = () => {
       setUiThemePreference(data.uiTheme ?? 'follow')
       setImageSort(data.imageSort ?? 'nameAsc')
       setShowFileName(data.showFileName ?? true)
+      setCellAspectRatio(data.cellAspectRatio ?? '16:9')
+      setHeaderCollapsed(data.headerCollapsed ?? false)
+      setShowFolders(data.showFolders ?? true)
       setHostUiLanguage(typeof data.hostUiLanguage === 'string' ? data.hostUiLanguage : undefined)
       configHydratedRef.current = true
     })
@@ -874,10 +1156,13 @@ const PreviewImages: React.FC = () => {
         keyword,
         activeKey,
         imageSort,
-        showFileName
+        showFileName,
+        cellAspectRatio,
+        headerCollapsed,
+        showFolders
       }
     })
-  }, [showImageTypes, backgroundColor, size, imageGridColumns, activeKey, keyword, imageSort, showFileName])
+  }, [showImageTypes, backgroundColor, size, imageGridColumns, activeKey, keyword, imageSort, showFileName, cellAspectRatio, headerCollapsed, showFolders])
 
   useEffect(() => {
     if (!configHydratedRef.current) {
@@ -911,9 +1196,24 @@ const PreviewImages: React.FC = () => {
     setShowSettingsModal(true)
   }
 
-  const handleApplySettings = (includeFolders: string[], excludeFolders: string[]) => {
-    setIncludeFolders(includeFolders)
-    setExcludeFolders(excludeFolders)
+  const handleApplySettings = (
+    nextIncludeFolders: string[],
+    nextExcludeFolders: string[],
+    nextShowImageTypes: string[],
+    nextCellAspectRatio: '16:9' | '4:3' | '1:1',
+    nextImageGridColumns: number,
+    nextShowFileName: boolean,
+    nextShowFolders: boolean
+  ) => {
+    setIncludeFolders(nextIncludeFolders)
+    setExcludeFolders(nextExcludeFolders)
+    setShowImageTypes(nextShowImageTypes)
+    setCellAspectRatio(nextCellAspectRatio)
+    const pos = sliderPosFromColumns(nextImageGridColumns)
+    setColumnSliderPos(pos)
+    setLayoutSliderPos(pos)
+    setShowFileName(nextShowFileName)
+    setShowFolders(nextShowFolders)
   }
 
   return (
@@ -921,141 +1221,106 @@ const PreviewImages: React.FC = () => {
       <>
       <div className='iv-preview-root'>
       <Spin spinning={loading}>
-        <AnnouncementBar hostUiLanguage={hostUiLanguage} />
         <StyledPreviewImages
           style={{
             padding: '10px 20px 20px 20px'
           }}
         >
-          <StyleTopRows>
+          {/* Main Gallery Header Toolbar */}
+          <StyleTopRows style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+            <Tag
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                height: '32px',
+                padding: '0 10px',
+                marginRight: 0,
+                fontSize: '12px',
+                borderRadius: '6px',
+                background: 'var(--vscode-editor-background, #1e1e1e)',
+                border: '1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.35))',
+                color: 'var(--vscode-foreground, #cccccc)',
+                fontWeight: 600,
+                flexShrink: 0
+              }}
+            >
+              {selectedFullPaths.size > 0
+                ? `${showImgs.length} Images (${selectedFullPaths.size} Selected)`
+                : `${showImgs.length} Images`}
+            </Tag>
             <Input
               addonBefore={<SearchOutlined />}
               allowClear
               size='middle'
-              placeholder='image path/name'
-              style={{ width: 'calc(100% - 92px)', marginRight: '8px' }}
+              placeholder='Filter images...'
+              style={{ flex: '1 1 140px', minWidth: '110px' }}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
             />
-            <StyledReloadOutlined onClick={refreshImgs} />
-            <StyledSettingOutlined onClick={handleClickSettings} />
-            <Tooltip title={themeToggleTitle(uiThemePreference)}>
-              <StyledThemeToggle onClick={handleCycleUiTheme} role='button' aria-label='Toggle UI theme'>
-                {themeToggleIcon(uiThemePreference)}
-              </StyledThemeToggle>
-            </Tooltip>
-          </StyleTopRows>
-          {/* Type */}
-          <StyleTopRows style={{ marginBottom: '2px' }}>
-            <StyledBetweenWrapper>
-              <span>
-                <StyleRowTitle>Type:</StyleRowTitle>
-                <Checkbox.Group
-                  options={typeOptions}
-                  value={[...showImageTypes]}
-                  onChange={(values) => setShowImageTypes(values as string[])}
-                />
-              </span>
-              <Space size='large'>
-                <Checkbox
-                  checked={showFileName}
-                  onChange={(e) => setShowFileName(e.target.checked)}
-                >
-                  Show filename
-                </Checkbox>
-                <span>
-                  Total count:<StyledPicCount style={{ marginLeft: '6px' }}>{imgs.length}</StyledPicCount>
-                </span>
-              </Space>
-            </StyledBetweenWrapper>
-          </StyleTopRows>
-          {/* Background */}
-          <StyleTopRows style={{ marginBottom: '6px' }}>
-            <StyleRowTitle>Background:</StyleRowTitle>
-            <span>
-              {BACKGROUND_COLOR_OPTIONS.map((opt) => (
-                <Tooltip key={opt} title={backgroundSwatchTooltip(opt)} mouseEnterDelay={0.35}>
-                  <StyleSquare
-                    onClick={() => setBackgroundColor(opt)}
-                    isSelected={backgroundColor === opt}
-                    color={opt}
-                  />
-                </Tooltip>
-              ))}
-            </span>
-          </StyleTopRows>
-          {/* Columns → pixel size derived from panel width */}
-          <StyleTopRows style={{ display: 'flex', alignItems: 'center', marginBottom: '4px' }}>
-            <StyleRowTitle>Columns:</StyleRowTitle>
-            <Tooltip title='Images per row (1–50). Pixel size follows panel width. Tick labels: every column through 10, then every 5 columns.'>
-              <Slider
-                style={{ flex: 1 }}
-                min={COLUMN_SLIDER_MIN}
-                max={COLUMN_SLIDER_MAX}
-                step={0.01}
-                marks={columnSliderMarks}
-                value={columnSliderPos}
-                tooltip={{ formatter: (v) => String(columnsFromSliderPos(Number(v))) }}
-                onChange={handlerChangeGridColumns}
-                onAfterChange={handlerAfterChangeGridColumns}
-                aria-label='Images per row'
+            {showFolders && (
+              <Dropdown menu={{ items: folderMenuItems, onClick: handleFolderMenuClick }}>
+                <Button>
+                  Folders <DownOutlined />
+                </Button>
+              </Dropdown>
+            )}
+            <Dropdown menu={{ items: actionMenuItems, onClick: handleActionMenuClick }}>
+              <Button type={selectedFullPaths.size > 0 ? 'primary' : 'default'}>
+                Actions {selectedFullPaths.size > 0 ? `(${selectedFullPaths.size})` : ''} <DownOutlined />
+              </Button>
+            </Dropdown>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Select<ImageSortMode>
+                aria-label='Sort images within folder'
+                value={imageSort}
+                onChange={setImageSort}
+                options={IMAGE_SORT_OPTIONS}
+                popupMatchSelectWidth={false}
+                style={{ width: 140 }}
               />
-            </Tooltip>
-          </StyleTopRows>
-          {/* Expand/Collapse All */}
-          <StyleTopRows>
-            <StyledBetweenWrapper>
-              <Space wrap>
-                <span style={{ color: 'var(--iv-secondary-fg, var(--vscode-descriptionForeground))' }}>
-                  Search result:{' '}
-                  <span style={{ color: 'var(--iv-primary-fg, var(--vscode-foreground))', fontWeight: 600 }}>
-                    {showImgs.length}
-                  </span>
-                </span>
-                {selectedFullPaths.size > 0 && (
-                  <span style={{ color: 'var(--vscode-focusBorder, #007acc)', fontWeight: 600, marginLeft: '4px' }}>
-                    ({selectedFullPaths.size} selected)
-                  </span>
-                )}
-                <Tooltip
-                  placement='right'
-                  title={`When there are more than ${THRESHOLD_ALL_COLLAPSED} images(after being filtered) being displayed, all directories are collapsed by default.`}
-                >
-                  <InfoCircleOutlined
-                    style={{ fontSize: '16px', color: 'var(--iv-icon-muted, var(--vscode-descriptionForeground))' }}
-                  />
-                </Tooltip>
-                <Button onClick={handleExpandAllFolders}>Expand All</Button>
-                <Button onClick={() => setActiveKey([])}>Collapse All</Button>
-                <Button onClick={handleSelectAll}>Select All</Button>
-                {selectedFullPaths.size > 0 && (
-                  <>
-                    <Button onClick={handleClearSelection}>Clear Selection</Button>
-                    <Button onClick={handleCopySelectedPaths}>Copy Path ({selectedFullPaths.size})</Button>
-                    <Button onClick={() => handleRevealInExplorer()}>Reveal in Explorer</Button>
-                    <Button danger onClick={() => onDeleteImage()}>
-                      Delete ({selectedFullPaths.size})
-                    </Button>
-                  </>
-                )}
-                <Tooltip title='Applies inside each folder only; folder order is unchanged.'>
-                  <Select<ImageSortMode>
-                    aria-label='Sort images within folder'
-                    value={imageSort}
-                    onChange={setImageSort}
-                    options={IMAGE_SORT_OPTIONS}
-                    popupMatchSelectWidth={false}
-                    style={{ minWidth: 300 }}
-                  />
+              <Space size={4} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <StyledReloadOutlined onClick={refreshImgs} />
+                <StyledSettingOutlined onClick={handleClickSettings} />
+                <Tooltip title={themeToggleTitle(uiThemePreference)}>
+                  <StyledThemeToggle onClick={handleCycleUiTheme} role='button' aria-label='Toggle UI theme'>
+                    {themeToggleIcon(uiThemePreference)}
+                  </StyledThemeToggle>
                 </Tooltip>
               </Space>
-            </StyledBetweenWrapper>
+            </div>
           </StyleTopRows>
+
           <StyleMainScrollSlot>
             <StyledImgsContainer ref={setScrollContainerRef} onScroll={onImageListScroll}>
               {allPaths.length === 0 ? (
                 customizeRenderEmpty()
+              ) : !showFolders ? (
+                /* Flat View Mode: render all images directly in a single grid without folder accordions */
+                <ThumbLoadBudgetProvider scrollRootRef={ref} ioGeneration={thumbIoGen} gridColumns={imageGridColumns}>
+                  <VirtualFolderImageGrid
+                    scrollTick={listScrollTick}
+                    scrollRootRef={ref}
+                    listInnerWidth={layoutWidthForSizing}
+                    columns={imageGridColumns}
+                    imgs={showImgs}
+                    backgroundColor={backgroundColor}
+                    enableLazyLoad={enableLazyLoad}
+                    everAutoPreview={everAutoPreview}
+                    clickFilePath={clickFilePath}
+                    showFileName={showFileName}
+                    selectedFullPaths={selectedFullPaths}
+                    onToggleSelect={handleToggleSelect}
+                    onAutoPreview={onAutoPreview}
+                    onDeleteImage={onDeleteImage}
+                    onRenameImage={handleOpenRenameModal}
+                    onRevealInExplorer={handleRevealInExplorer}
+                    cellAspectRatio={cellAspectRatio}
+                    onOpenPreview={handleOpenPreview}
+                    onThumbResolved={handleThumbResolved}
+                  />
+                </ThumbLoadBudgetProvider>
               ) : (
+                /* Accordion View Mode: grouped by folder */
                 <ThumbLoadBudgetProvider scrollRootRef={ref} ioGeneration={thumbIoGen} gridColumns={imageGridColumns}>
                   <Collapse activeKey={activeKey} onChange={handleChangeActiveKey}>
                     {allPaths.map((path) => {
@@ -1076,7 +1341,7 @@ const PreviewImages: React.FC = () => {
                             </span>
                           }
                           key={path}
-                          >
+                        >
                           {panelOpen ? (
                             <VirtualFolderImageGrid
                               scrollTick={listScrollTick}
@@ -1095,6 +1360,7 @@ const PreviewImages: React.FC = () => {
                               onDeleteImage={onDeleteImage}
                               onRenameImage={handleOpenRenameModal}
                               onRevealInExplorer={handleRevealInExplorer}
+                              cellAspectRatio={cellAspectRatio}
                               onOpenPreview={handleOpenPreview}
                               onThumbResolved={handleThumbResolved}
                             />
@@ -1109,12 +1375,105 @@ const PreviewImages: React.FC = () => {
           </StyleMainScrollSlot>
         </StyledPreviewImages>
       </Spin>
-      </div>
+    </div>
+
+      {/* Modal: Create Single / Bulk Folder */}
+      <Modal
+        title='Create New Folder(s)'
+        open={createFolderModalVisible}
+        onOk={handleConfirmCreateFolder}
+        onCancel={() => setCreateFolderModalVisible(false)}
+        confirmLoading={createFolderLoading}
+        okText='Create'
+      >
+        <Tabs
+          activeKey={createFolderTab}
+          onChange={(k) => setCreateFolderTab(k as 'single' | 'bulk')}
+          items={[
+            {
+              key: 'single',
+              label: 'Single Folder',
+              children: (
+                <Input
+                  placeholder='Folder name (e.g. Screenshots)'
+                  value={singleFolderName}
+                  onChange={(e) => setSingleFolderName(e.target.value)}
+                  onPressEnter={handleConfirmCreateFolder}
+                  autoFocus
+                />
+              )
+            },
+            {
+              key: 'bulk',
+              label: 'Bulk Create (Multiple)',
+              children: (
+                <Input.TextArea
+                  rows={5}
+                  placeholder={'Enter folder names, one per line:\nFolderA\nFolderB\nFolderC'}
+                  value={bulkFolderNames}
+                  onChange={(e) => setBulkFolderNames(e.target.value)}
+                />
+              )
+            }
+          ]}
+        />
+      </Modal>
+
+      {/* Modal: Group Selected Images to New Folder */}
+      <Modal
+        title={`Group Selected Images (${selectedFullPaths.size})`}
+        open={groupFolderModalVisible}
+        onOk={handleConfirmGroupFolder}
+        onCancel={() => setGroupFolderModalVisible(false)}
+        confirmLoading={groupFolderLoading}
+        okText='Group & Move'
+      >
+        <div style={{ marginBottom: 12 }}>
+          Enter a folder name for the selected {selectedFullPaths.size} image(s):
+        </div>
+        <Input
+          placeholder='Folder name (Leave blank for auto timestamp, e.g. Folder_20260829_093000)'
+          value={groupFolderName}
+          onChange={(e) => setGroupFolderName(e.target.value)}
+          onPressEnter={handleConfirmGroupFolder}
+          autoFocus
+        />
+      </Modal>
+
+      {/* Modal: Move Selected Images to Destination Folder */}
+      <Modal
+        title={`Move Selected Images (${selectedFullPaths.size})`}
+        open={moveFolderModalVisible}
+        onOk={handleConfirmMoveFolder}
+        onCancel={() => setMoveFolderModalVisible(false)}
+        confirmLoading={moveFolderLoading}
+        okText='Move'
+      >
+        <div style={{ marginBottom: 12 }}>
+          Destination folder path for {selectedFullPaths.size} image(s):
+        </div>
+        <Space.Compact style={{ width: '100%' }}>
+          <Input
+            placeholder='Destination folder path or folder name'
+            value={moveFolderPath}
+            onChange={(e) => setMoveFolderPath(e.target.value)}
+            onPressEnter={handleConfirmMoveFolder}
+            autoFocus
+          />
+          <Button onClick={handleBrowseMoveFolder}>Browse...</Button>
+        </Space.Compact>
+      </Modal>
       {showSettingsModal && (
         <SettingsModal
           includeFolders={includeFolders}
           excludeFolders={excludeFolders}
           visible={showSettingsModal}
+          showImageTypes={showImageTypes}
+          allImageTypes={allImageTypes}
+          cellAspectRatio={cellAspectRatio}
+          imageGridColumns={imageGridColumns}
+          showFileName={showFileName}
+          showFolders={showFolders}
           onClose={() => setShowSettingsModal(false)}
           onApply={handleApplySettings}
         />

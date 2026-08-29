@@ -37,6 +37,7 @@ export interface VirtualFolderImageGridProps {
   onDeleteImage: (fullPath: string) => void
   onRenameImage?: (img: IImage) => void
   onRevealInExplorer?: (img: IImage) => void
+  cellAspectRatio?: '16:9' | '4:3' | '1:1'
   /** Open the external lightbox at the image's global index. */
   onOpenPreview: (img: IImage) => void
   /** Receive resolved grid thumbnail URL for lightbox minimap. */
@@ -67,6 +68,7 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
   onDeleteImage,
   onRenameImage,
   onRevealInExplorer,
+  cellAspectRatio = '16:9',
   onOpenPreview,
   onThumbResolved
 }) => {
@@ -75,11 +77,13 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
 
   const gap = IMAGE_TILE_GAP
   const cellW = gridSquareCellWidthPx(listInnerWidth, cols)
+  const ratio = cellAspectRatio === '1:1' ? 1 : cellAspectRatio === '4:3' ? 3 / 4 : 9 / 16
+  const cellH = Math.round(cellW * ratio)
   const thumbTargetMaxEdgePx = useMemo(() => thumbDecodeMaxEdgeFromCellWidth(cellW), [cellW])
   const showFileCaption = cols <= IMAGE_GRID_SHOW_FILENAME_MAX_COLS && showFileName
   const captionBelowPx = showFileCaption ? CAPTION_BELOW_PX_FULL : 0
-  /** One row: thumb square + caption; gap between rows is `IMAGE_TILE_GAP` (same as StyleImageList). */
-  const rowBody = cellW + captionBelowPx
+  /** One row: thumb container + caption; gap between rows is `IMAGE_TILE_GAP`. */
+  const rowBody = cellH + captionBelowPx
   const rowStride = rowBody + gap
   const rowCount = Math.max(0, Math.ceil(imgs.length / cols))
   const totalHeight = rowCount > 0 ? rowCount * rowBody + Math.max(0, rowCount - 1) * gap : 0
@@ -154,27 +158,29 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
       <StyleImageList style={{ ['--iv-grid-cols']: String(cols) } as React.CSSProperties}>
         {imgs.map((img, indexInFolder) => (
           <StyleImage key={img.path}>
-            <ImageLazyLoad
-              enableLazyLoad={enableLazyLoad}
-              img={img}
-              backgroundColor={backgroundColor}
-              autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
-              onAutoPreview={onAutoPreview}
-              onOpenPreview={() => onOpenPreview(img)}
-              indexInFolder={indexInFolder}
-              imageGridColumns={cols}
-              thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
-              onThumbResolved={onThumbResolved}
-              isSelected={selectedFullPaths?.has(img.fullPath)}
-              onToggleSelect={() => onToggleSelect?.(img.fullPath)}
-            />
             <ImageInfo
               img={img}
               onDeleteImage={onDeleteImage}
               onRenameImage={onRenameImage}
               onRevealInExplorer={onRevealInExplorer}
               showFileName={showFileCaption}
-            />
+            >
+              <ImageLazyLoad
+                enableLazyLoad={enableLazyLoad}
+                img={img}
+                backgroundColor={backgroundColor}
+                autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
+                onAutoPreview={onAutoPreview}
+                onOpenPreview={() => onOpenPreview(img)}
+                indexInFolder={indexInFolder}
+                imageGridColumns={cols}
+                thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
+                onThumbResolved={onThumbResolved}
+                isSelected={selectedFullPaths?.has(img.fullPath)}
+                onToggleSelect={() => onToggleSelect?.(img.fullPath)}
+                cellAspectRatio={cellAspectRatio}
+              />
+            </ImageInfo>
           </StyleImage>
         ))}
       </StyleImageList>
@@ -219,27 +225,29 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
                 const img = imgs[i]
                 return (
                   <StyleImage key={img.path}>
-                    <ImageLazyLoad
-                      enableLazyLoad={enableLazyLoad}
-                      img={img}
-                      backgroundColor={backgroundColor}
-                      autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
-                      onAutoPreview={onAutoPreview}
-                      onOpenPreview={() => onOpenPreview(img)}
-                      indexInFolder={i}
-                      imageGridColumns={cols}
-                      thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
-                      onThumbResolved={onThumbResolved}
-                      isSelected={selectedFullPaths?.has(img.fullPath)}
-                      onToggleSelect={() => onToggleSelect?.(img.fullPath)}
-                    />
                     <ImageInfo
                       img={img}
                       onDeleteImage={onDeleteImage}
                       onRenameImage={onRenameImage}
                       onRevealInExplorer={onRevealInExplorer}
                       showFileName={showFileCaption}
-                    />
+                    >
+                      <ImageLazyLoad
+                        enableLazyLoad={enableLazyLoad}
+                        img={img}
+                        backgroundColor={backgroundColor}
+                        autoPreview={!everAutoPreview && clickFilePath && clickFilePath === img.fullPath}
+                        onAutoPreview={onAutoPreview}
+                        onOpenPreview={() => onOpenPreview(img)}
+                        indexInFolder={i}
+                        imageGridColumns={cols}
+                        thumbTargetMaxEdgePx={thumbTargetMaxEdgePx}
+                        onThumbResolved={onThumbResolved}
+                        isSelected={selectedFullPaths?.has(img.fullPath)}
+                        onToggleSelect={() => onToggleSelect?.(img.fullPath)}
+                        cellAspectRatio={cellAspectRatio}
+                      />
+                    </ImageInfo>
                   </StyleImage>
                 )
               })}

@@ -23,6 +23,9 @@ export const MESSAGE_CMD = {
   OPEN_EXTERNAL_URI: 'openExternalUri',
   /** Reveal file in VS Code File Explorer sidebar (`vscode.commands.executeCommand('revealInExplorer', uri)`). */
   REVEAL_IN_EXPLORER: 'revealInExplorer',
+  CREATE_FOLDERS: 'createFolders',
+  MOVE_FILES: 'moveFiles',
+  SELECT_FOLDER_DIALOG: 'selectFolderDialog',
 }
 
 export const EXTENSION_NAME = 'vscode-infra'

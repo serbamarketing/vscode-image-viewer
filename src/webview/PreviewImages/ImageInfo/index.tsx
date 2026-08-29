@@ -30,6 +30,7 @@ type ImageInfoProps = {
   onRevealInExplorer?: (img: IImage) => void
   /** When false (dense grid / high column count), skip the file name row under the thumb. */
   showFileName?: boolean
+  children?: React.ReactNode
 }
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
@@ -38,11 +39,9 @@ const ImageInfo: React.FC<ImageInfoProps> = ({
   onDeleteImage,
   onRenameImage,
   onRevealInExplorer,
-  showFileName = true
+  showFileName = true,
+  children
 }) => {
-  if (!showFileName) {
-    return null
-  }
   const showCopySuccess = useCallback((copyText: string, showMsg: boolean = true) => {
     navigator.clipboard
       .writeText(copyText)
@@ -117,11 +116,16 @@ const ImageInfo: React.FC<ImageInfoProps> = ({
   )
 
   return (
-    <StyleImageInfo>
-      <Dropdown menu={{ items: menuItems, onClick: handleMenuClick }} getPopupContainer={dropdownGetPopupContainer}>
-        <StyleImageName title={img.fileName}>{img.fileName}</StyleImageName>
-      </Dropdown>
-    </StyleImageInfo>
+    <Dropdown menu={{ items: menuItems, onClick: handleMenuClick }} trigger={['contextMenu']} getPopupContainer={dropdownGetPopupContainer}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
+        {children}
+        {showFileName && (
+          <StyleImageInfo>
+            <StyleImageName title={img.fileName}>{img.fileName}</StyleImageName>
+          </StyleImageInfo>
+        )}
+      </div>
+    </Dropdown>
   )
 }
 

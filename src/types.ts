@@ -24,6 +24,12 @@ export interface IConfig {
   uiTheme?: WebviewUiThemePreference,
   imageSort?: ImageSortMode,
   showFileName?: boolean,
+  /** Cell aspect ratio: '16:9' (landscape screenshots), '4:3', or '1:1' (square). */
+  cellAspectRatio?: '16:9' | '4:3' | '1:1',
+  /** Whether the header configuration panel is collapsed to focus on gallery. */
+  headerCollapsed?: boolean,
+  /** Whether folders are shown as accordions (true) or flattened into a single grid (false). */
+  showFolders?: boolean,
   /**
    * Injected by the extension only in `GET_CONFIG` responses (`vscode.env.language`);
    * never persisted to the local config file.

@@ -15,7 +15,11 @@ const DEFAULT_CONFIG: IConfig = {
   excludeFolders: [],
   uiTheme: 'follow',
   imageSort: 'nameAsc',
-  showFileName: true
+  showFileName: true,
+  imageGridColumns: 2,
+  cellAspectRatio: '16:9',
+  headerCollapsed: false,
+  showFolders: true
 }
 
 const PROJECTS_CONFIG_DIRECTORY = 'projectsConfig'

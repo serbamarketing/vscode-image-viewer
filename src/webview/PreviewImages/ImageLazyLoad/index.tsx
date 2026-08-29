@@ -32,12 +32,13 @@ interface IImageLazyLoadProps {
   onThumbResolved?: (_vscodePath: string, _thumbSrc: string) => void
   isSelected?: boolean
   onToggleSelect?: () => void
+  cellAspectRatio?: '16:9' | '4:3' | '1:1'
 }
 /* eslint-enable no-unused-vars */
 
-const CellShell = styled.div<{ $isSelected?: boolean }>`
+const CellShell = styled.div<{ $isSelected?: boolean; $aspectRatio?: string }>`
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: ${(props) => (props.$aspectRatio === '1:1' ? '1 / 1' : props.$aspectRatio === '4:3' ? '4 / 3' : '16 / 9')};
   min-width: 0;
   min-height: 0;
   position: relative;
@@ -132,7 +133,8 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
   thumbTargetMaxEdgePx,
   onThumbResolved,
   isSelected = false,
-  onToggleSelect
+  onToggleSelect,
+  cellAspectRatio
 }) => {
   const { scrollRootRef, ioGeneration, registry, reveal } = useThumbLoadBudget()
   const shellRef = useRef<HTMLDivElement>(null)
@@ -308,7 +310,7 @@ const ImageLazyLoad: React.FC<IImageLazyLoadProps> = ({
   const imgBg = imageInlineBackground(backgroundColor)
 
   return (
-    <CellShell ref={shellRef} $isSelected={isSelected}>
+    <CellShell ref={shellRef} $isSelected={isSelected} $aspectRatio={cellAspectRatio}>
       <SelectionCheckboxWrap
         $isSelected={isSelected}
         onClick={(e) => {
