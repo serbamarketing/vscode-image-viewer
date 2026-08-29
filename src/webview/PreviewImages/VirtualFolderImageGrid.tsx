@@ -37,9 +37,10 @@ export interface VirtualFolderImageGridProps {
   onDeleteImage: (fullPath: string) => void
   onRenameImage?: (img: IImage) => void
   onRevealInExplorer?: (img: IImage) => void
-  cellAspectRatio?: '16:9' | '4:3' | '1:1'
+  onEditTags?: (img: IImage) => void
+  cellAspectRatio?: '16:9' | '4:3' | '1:1' | '3:4' | '9:16'
   /** Open the external lightbox at the image's global index. */
-  onOpenPreview: (img: IImage) => void
+  onOpenPreview: (img: IImage) => void;
   /** Receive resolved grid thumbnail URL for lightbox minimap. */
   onThumbResolved?: (vscodePath: string, thumbSrc: string) => void
 }
@@ -68,6 +69,7 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
   onDeleteImage,
   onRenameImage,
   onRevealInExplorer,
+  onEditTags,
   cellAspectRatio = '16:9',
   onOpenPreview,
   onThumbResolved
@@ -77,7 +79,11 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
 
   const gap = IMAGE_TILE_GAP
   const cellW = gridSquareCellWidthPx(listInnerWidth, cols)
-  const ratio = cellAspectRatio === '1:1' ? 1 : cellAspectRatio === '4:3' ? 3 / 4 : 9 / 16
+  const ratio = cellAspectRatio === '1:1' ? 1
+    : cellAspectRatio === '4:3' ? 3 / 4
+    : cellAspectRatio === '3:4' ? 4 / 3
+    : cellAspectRatio === '9:16' ? 16 / 9
+    : 9 / 16
   const cellH = Math.round(cellW * ratio)
   const thumbTargetMaxEdgePx = useMemo(() => thumbDecodeMaxEdgeFromCellWidth(cellW), [cellW])
   const showFileCaption = cols <= IMAGE_GRID_SHOW_FILENAME_MAX_COLS && showFileName
@@ -230,6 +236,7 @@ export const VirtualFolderImageGrid: React.FC<VirtualFolderImageGridProps> = ({
                       onDeleteImage={onDeleteImage}
                       onRenameImage={onRenameImage}
                       onRevealInExplorer={onRevealInExplorer}
+                      onEditTags={onEditTags}
                       showFileName={showFileCaption}
                     >
                       <ImageLazyLoad

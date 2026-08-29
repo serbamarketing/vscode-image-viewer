@@ -7,4 +7,5 @@ export interface IImage {
   fileName: string
   fileType: string
   dirPath: string
+  tags?: string[]
 }

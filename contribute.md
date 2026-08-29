@@ -1,23 +1,16 @@
-## 1. Development Guide
+## Development & Publishing Guide for Image Viewer SE
 
-### 1.1 Debug and develop
-// clone to local  
-``git clone git@github.com:ZhangJian1713/easy-vscode.git``  
-// install packages  
-``yarn``  
-Now you can press F5 to debug the extension in a new popup VSCode instance.  
+### 1. Debug and Develop
+```bash
+yarn
+```
+Press `F5` in VS Code / Cursor to debug the extension in an Extension Development Host window.
 
-### 1.2 Publish
-You need to register an account at: https://marketplace.visualstudio.com/  
-// install vsce  
-``sudo npm install -g vsce``  
-// build a local install file  
-``vsce package``  
-// publish patch[minor|major] version  
-``vsce publish patch``  
+### 2. Package & Publish to Open VSX
+```bash
+# Package VSIX file
+npx @vscode/vsce package
 
-
-
-
-
-
+# Publish to Open VSX
+npx ovsx publish image-viewer-se-1.1.3.vsix -t <YOUR_OPEN_VSX_TOKEN>
+```

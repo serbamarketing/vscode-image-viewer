@@ -149,8 +149,9 @@ function resolveThumbMemoSet(key: string, value: GridThumbResponse): void {
 
 function extensionRoot(): string {
   const packaged =
+    extensions.getExtension('spawnerastudio.image-viewer-se') ??
     extensions.getExtension('vscode-infra.image-viewer') ??
-    extensions.all.find((e) => e.id.endsWith('.image-viewer'))
+    extensions.all.find((e) => e.id.endsWith('.image-viewer-se') || e.id.endsWith('.image-viewer'))
 
   if (packaged) {
     return packaged.extensionPath

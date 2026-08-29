@@ -9,7 +9,7 @@
  */
 
 /** Sync with `package.json` version; bumping re-shows the auto modal for users who had dismissed the old id. */
-export const ANNOUNCEMENT_ID = '2.0.0'
+export const ANNOUNCEMENT_ID = '1.1.3'
 
 export const REPOSITORY_URL = 'https://github.com/ZhangJian1713/vscode-image-viewer'
 
@@ -58,15 +58,13 @@ export type AnnouncementStrings = {
 }
 
 const ANNOUNCEMENT_COPY_EN: AnnouncementStrings = {
-  modalTitle: `What’s new in Image Viewer v${ANNOUNCEMENT_ID}`,
+  modalTitle: `What’s new in Image Viewer SE v${ANNOUNCEMENT_ID}`,
   features: [
-    'Light and dark UI themes are supported; by default the panel follows your VS Code or Cursor theme.',
-    'Thumbnail grid performance is greatly improved — fully usable for managing large high-resolution photo libraries.',
-    'Multiple ways to sort images.',
-    'Grid density is controlled with Columns instead of Size for a better use of panel width and a cleaner layout.',
-    'Checkerboard and transparent backgrounds are available as preview backdrops.',
-    'The preview now shows the file name.',
-    'Skips macOS `._*` AppleDouble sidecar files (often seen on external drives).'
+    'Added Portrait aspect ratios (3:4 and 9:16) alongside Landscape (16:9, 4:3) and Square (1:1).',
+    'Batch file operations: move, delete, rename, group, and create folders directly from webview.',
+    'Custom display modes: Accordions + Filenames, Accordions Only, Flat List with Filenames, or Flat Dense Grid.',
+    'High-performance virtualized thumbnail grid with disk-caching and lazy loading.',
+    'Folder-scoped tabs and custom title support for focused workspace browsing.'
   ],
   barCta: 'What’s new',
   barHint: '— click for details',

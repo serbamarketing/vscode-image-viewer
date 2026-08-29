@@ -1,14 +1,15 @@
-import { Dropdown, message } from 'antd'
+import { Dropdown, message, Tag } from 'antd'
 import type { MenuProps } from 'antd'
 import { callVscode } from '@easy_vscode/webview'
 import React, { useCallback, useMemo } from 'react'
 import { MESSAGE_CMD } from '../../../constants'
 import type { IImage } from '../imageTypes'
 import { StyleImageInfo, StyleImageName } from './style'
-import { CopyOutlined, DeleteOutlined, EditOutlined, FolderOpenOutlined } from '@ant-design/icons'
+import { CopyOutlined, DeleteOutlined, EditOutlined, FolderOpenOutlined, TagOutlined } from '@ant-design/icons'
 
 const MenuAction = {
   RenameFile: 'rename-file',
+  EditTags: 'edit-tags',
   RevealInExplorer: 'reveal-in-explorer',
   CopyFileName: 'copy-file-name',
   CopyPath: 'copy-path',
@@ -28,6 +29,7 @@ type ImageInfoProps = {
   onDeleteImage: (fullPath: string) => void
   onRenameImage?: (img: IImage) => void
   onRevealInExplorer?: (img: IImage) => void
+  onEditTags?: (img: IImage) => void
   /** When false (dense grid / high column count), skip the file name row under the thumb. */
   showFileName?: boolean
   children?: React.ReactNode
@@ -39,6 +41,7 @@ const ImageInfo: React.FC<ImageInfoProps> = ({
   onDeleteImage,
   onRenameImage,
   onRevealInExplorer,
+  onEditTags,
   showFileName = true,
   children
 }) => {
@@ -65,6 +68,11 @@ const ImageInfo: React.FC<ImageInfoProps> = ({
         label: 'Rename',
         key: MenuAction.RenameFile,
         icon: <EditOutlined style={{ color: LINK_ICON_COLOR }} />
+      },
+      {
+        label: 'Edit Tags...',
+        key: MenuAction.EditTags,
+        icon: <TagOutlined style={{ color: LINK_ICON_COLOR }} />
       },
       {
         label: 'Reveal in Explorer',
@@ -100,6 +108,8 @@ const ImageInfo: React.FC<ImageInfoProps> = ({
       const key = String(info.key)
       if (key === MenuAction.RenameFile) {
         onRenameImage?.(img)
+      } else if (key === MenuAction.EditTags) {
+        onEditTags?.(img)
       } else if (key === MenuAction.RevealInExplorer) {
         onRevealInExplorer?.(img)
       } else if (key === MenuAction.CopyFileName) {
@@ -112,7 +122,7 @@ const ImageInfo: React.FC<ImageInfoProps> = ({
         onClickDelete()
       }
     },
-    [img, onRenameImage, onRevealInExplorer, onClickCopyBase64, onClickDelete, showCopySuccess]
+    [img, onRenameImage, onEditTags, onRevealInExplorer, onClickCopyBase64, onClickDelete, showCopySuccess]
   )
 
   return (
@@ -120,8 +130,17 @@ const ImageInfo: React.FC<ImageInfoProps> = ({
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
         {children}
         {showFileName && (
-          <StyleImageInfo>
+          <StyleImageInfo style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
             <StyleImageName title={img.fileName}>{img.fileName}</StyleImageName>
+            {img.tags && img.tags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px', marginTop: '2px' }}>
+                {img.tags.map((tag) => (
+                  <Tag key={tag} color="blue" style={{ fontSize: '10px', lineHeight: '14px', padding: '0 4px', margin: 0 }}>
+                    {tag}
+                  </Tag>
+                ))}
+              </div>
+            )}
           </StyleImageInfo>
         )}
       </div>

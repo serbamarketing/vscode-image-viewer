@@ -1,11 +1,11 @@
 {
-  "name": "image-viewer",
-  "publisher": "vscode-infra",
-  "displayName": "Image Viewer",
-  "description": "Browse images in your project: thumbnail grid, lightbox preview, copy path or Base64. Works well for large folders (columns layout, lazy loading). Light or dark UI; scan one folder from Explorer or the whole workspace.",
+  "name": "image-viewer-se",
+  "publisher": "spawnerastudio",
+  "displayName": "Image Viewer SE",
+  "description": "Image Viewer SE (Spawn Era) — High-performance image browser for VS Code & Cursor. Multi-column grid, fast thumbnail caching, full-screen lightbox preview, Base64/path copy, drag & drop, file management, and folder-scoped tabs.",
   "icon": "assets/logo.png",
-  "version": "2.0.5",
-  "author": "Zhang Jian <zhangjian1713@gmail.com>",
+  "version": "1.1.3",
+  "author": "Ardi <spawnerastudio@gmail.com>",
   "homepage": "https://github.com/ZhangJian1713/vscode-image-viewer",
   "license": "MIT",
   "engines": {
@@ -13,10 +13,13 @@
   },
   "categories": [
     "Visualization",
+    "Media",
     "Other"
   ],
   "keywords": [
     "image",
+    "image-viewer",
+    "image-viewer-se",
     "images",
     "gallery",
     "thumbnail",
@@ -28,9 +31,11 @@
     "png",
     "jpg",
     "webp",
+    "avif",
     "img",
     "pic",
-    "photos"
+    "photos",
+    "media"
   ],
   "main": "./dist/extension.js",
   "webviewVendorTemplate": "antd-less",
@@ -38,7 +43,7 @@
     "commands": [
       {
         "command": "vscode-infra.webviewImageViewer",
-        "title": "View Images 🌄"
+        "title": "Image Viewer SE: View Images 🌄"
       }
     ],
     "menus": {

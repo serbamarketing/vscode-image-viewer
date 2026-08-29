@@ -9,7 +9,7 @@ interface ISettingsModalProps {
   visible: boolean;
   showImageTypes: string[];
   allImageTypes: string[];
-  cellAspectRatio: '16:9' | '4:3' | '1:1';
+  cellAspectRatio: '16:9' | '4:3' | '1:1' | '3:4' | '9:16';
   imageGridColumns: number;
   showFileName: boolean;
   showFolders: boolean;
@@ -18,7 +18,7 @@ interface ISettingsModalProps {
     includeFolders: string[],
     excludeFolders: string[],
     showImageTypes: string[],
-    cellAspectRatio: '16:9' | '4:3' | '1:1',
+    cellAspectRatio: '16:9' | '4:3' | '1:1' | '3:4' | '9:16',
     imageGridColumns: number,
     showFileName: boolean,
     showFolders: boolean
@@ -42,7 +42,7 @@ const SettingsModal: FC<ISettingsModalProps> = ({
   const [includeFolders, setIncludeFolders] = useState<string>(initIncludeFolders.join("\n"));
   const [excludeFolders, setExcludeFolders] = useState<string>(initExcludeFolders.join("\n"));
   const [showImageTypes, setShowImageTypes] = useState<string[]>(initShowImageTypes);
-  const [cellAspectRatio, setCellAspectRatio] = useState<'16:9' | '4:3' | '1:1'>(initCellAspectRatio);
+  const [cellAspectRatio, setCellAspectRatio] = useState<'16:9' | '4:3' | '1:1' | '3:4' | '9:16'>(initCellAspectRatio);
   const [imageGridColumns, setImageGridColumns] = useState<number>(initImageGridColumns);
   const [showFileName, setShowFileName] = useState<boolean>(initShowFileName);
   const [showFolders, setShowFolders] = useState<boolean>(initShowFolders);
@@ -93,14 +93,16 @@ const SettingsModal: FC<ISettingsModalProps> = ({
       <Space size='middle' style={{ marginBottom: 12, flexWrap: 'wrap' }}>
         <div>
           <div style={{ marginBottom: 4, color: 'var(--vscode-descriptionForeground)' }}>Aspect Ratio:</div>
-          <Select<'16:9' | '4:3' | '1:1'>
+          <Select<'16:9' | '4:3' | '1:1' | '3:4' | '9:16'>
             value={cellAspectRatio}
             onChange={setCellAspectRatio}
-            style={{ width: 130 }}
+            style={{ width: 150 }}
             options={[
               { label: '16:9 Landscape', value: '16:9' },
               { label: '4:3 Standard', value: '4:3' },
-              { label: '1:1 Square', value: '1:1' }
+              { label: '1:1 Square', value: '1:1' },
+              { label: '3:4 Portrait', value: '3:4' },
+              { label: '9:16 Portrait', value: '9:16' }
             ]}
           />
         </div>

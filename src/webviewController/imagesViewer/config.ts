@@ -19,7 +19,8 @@ const DEFAULT_CONFIG: IConfig = {
   imageGridColumns: 2,
   cellAspectRatio: '16:9',
   headerCollapsed: false,
-  showFolders: true
+  showFolders: true,
+  imageTags: {}
 }
 
 const PROJECTS_CONFIG_DIRECTORY = 'projectsConfig'

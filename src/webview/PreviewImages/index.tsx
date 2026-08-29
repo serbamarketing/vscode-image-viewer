@@ -151,7 +151,7 @@ function normalizeConfiguredImageTypes(types: string[]): string[] {
   return types.map((t) => String(t).replace(/^\./, '').toLowerCase())
 }
 
-const completeImgs = (imgs: RawWorkspaceImage[], projectPath: string): IImage[] => {
+const completeImgs = (imgs: RawWorkspaceImage[], projectPath: string, imageTagsMap: Record<string, string[]> = {}): IImage[] => {
   const fallbackFullPath = (rel: string) => {
     const base = projectPath.replace(/[/\\]+$/, '')
     const tail = rel.replace(/^[/\\]+/, '')
@@ -163,12 +163,15 @@ const completeImgs = (imgs: RawWorkspaceImage[], projectPath: string): IImage[] 
     const dirPath = filePath.substring(0, filePath.lastIndexOf('/') + 1)
     const fileName = filePath.substring(filePath.lastIndexOf('/') + 1)
     const fileType = filePath.substring(filePath.lastIndexOf('.') + 1).toLowerCase()
+    const fullPath = img.fullPath && img.fullPath.length > 0 ? img.fullPath : fallbackFullPath(img.path)
+    const tags = imageTagsMap[fullPath] || imageTagsMap[img.vscodePath] || imageTagsMap[img.path] || []
     const newImg: IImage = {
       ...img,
-      fullPath: img.fullPath && img.fullPath.length > 0 ? img.fullPath : fallbackFullPath(img.path),
+      fullPath,
       dirPath,
       fileName,
-      fileType
+      fileType,
+      tags
     }
     return newImg
   })
@@ -226,7 +229,7 @@ const PreviewImages: React.FC = () => {
   const [everAutoPreview, setEverAutoPreview] = useState(false)
   const [showFileName, setShowFileName] = useState<boolean>(true)
   const [showFolders, setShowFolders] = useState<boolean>(true)
-  const [cellAspectRatio, setCellAspectRatio] = useState<'16:9' | '4:3' | '1:1'>('16:9')
+  const [cellAspectRatio, setCellAspectRatio] = useState<'16:9' | '4:3' | '1:1' | '3:4' | '9:16'>('16:9')
   const [headerCollapsed, setHeaderCollapsed] = useState<boolean>(false)
   const [selectedFullPaths, setSelectedFullPaths] = useState<Set<string>>(() => new Set())
   const [showSettingsModal, setShowSettingsModal] = useState(false)
@@ -249,6 +252,69 @@ const PreviewImages: React.FC = () => {
   const [moveFolderModalVisible, setMoveFolderModalVisible] = useState(false)
   const [moveFolderPath, setMoveFolderPath] = useState('')
   const [moveFolderLoading, setMoveFolderLoading] = useState(false)
+
+  // Image Tagging state
+  const [imageTags, setImageTags] = useState<Record<string, string[]>>({})
+  const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([])
+  const [tagModalVisible, setTagModalVisible] = useState(false)
+  const [tagModalTargetPaths, setTagModalTargetPaths] = useState<string[]>([])
+  const [tagInputValues, setTagInputValues] = useState<string[]>([])
+
+  const allUniqueTags = useMemo(() => {
+    const set = new Set<string>()
+    for (const tags of Object.values(imageTags)) {
+      if (Array.isArray(tags)) {
+        for (const t of tags) {
+          if (t && typeof t === 'string' && t.trim().length > 0) {
+            set.add(t.trim())
+          }
+        }
+      }
+    }
+    return Array.from(set).sort()
+  }, [imageTags])
+
+  const handleOpenTagModalForSelected = useCallback(() => {
+    const targetPaths = Array.from(selectedFullPaths)
+    if (targetPaths.length === 0) return
+    setTagModalTargetPaths(targetPaths)
+    if (targetPaths.length === 1) {
+      const p = targetPaths[0]
+      const existing = imageTags[p] || []
+      setTagInputValues([...existing])
+    } else {
+      setTagInputValues([])
+    }
+    setTagModalVisible(true)
+  }, [selectedFullPaths, imageTags])
+
+  const handleOpenTagModalForSingle = useCallback((img: IImage) => {
+    const p = img.fullPath || img.vscodePath || img.path
+    setTagModalTargetPaths([p])
+    const existing = imageTags[p] || img.tags || []
+    setTagInputValues([...existing])
+    setTagModalVisible(true)
+  }, [imageTags])
+
+  const handleSaveTagsModal = useCallback(() => {
+    if (tagModalTargetPaths.length === 0) return
+    const newImageTags = { ...imageTags }
+    const cleanedTags = tagInputValues.map((t) => t.trim()).filter(Boolean)
+    for (const path of tagModalTargetPaths) {
+      if (cleanedTags.length > 0) {
+        newImageTags[path] = cleanedTags
+      } else {
+        delete newImageTags[path]
+      }
+    }
+    setImageTags(newImageTags)
+    setTagModalVisible(false)
+    message.success(`Updated tags for ${tagModalTargetPaths.length} image(s)`)
+    callVscode({
+      cmd: MESSAGE_CMD.SAVE_CONFIG,
+      data: { imageTags: newImageTags }
+    })
+  }, [tagModalTargetPaths, tagInputValues, imageTags])
 
   const handleOpenCreateFolderModal = () => {
     setSingleFolderName('')
@@ -697,14 +763,14 @@ const PreviewImages: React.FC = () => {
     }
   }, [onRevealWebview])
 
-  const updateImgs = (newImgs: RawWorkspaceImage[]) => {
-    const imgs = completeImgs(newImgs, currentProjectPath.current)
+  const updateImgs = useCallback((newImgs: RawWorkspaceImage[]) => {
+    const imgs = completeImgs(newImgs, currentProjectPath.current, imageTags)
     setImgs(imgs)
     let allFileTypes: string[] = imgs.map((img) => img.fileType)
     allFileTypes = Array.from(new Set(allFileTypes)).sort()
     setAllImageTypes([...allFileTypes])
-    setShowImageTypes([...allFileTypes])
-  }
+    setShowImageTypes((prev) => (prev.length > 0 ? prev : [...allFileTypes]))
+  }, [imageTags])
 
   const folderStateInitializedRef = useRef(false)
 
@@ -713,6 +779,11 @@ const PreviewImages: React.FC = () => {
     showImgs = showImgs
       .filter((img) => img.path.indexOf(keyword) > -1)
       .filter((img) => showImageTypes.includes(img.fileType))
+      .filter((img) => {
+        if (selectedTagsFilter.length === 0) return true
+        const tags = img.tags || imageTags[img.fullPath] || imageTags[img.vscodePath] || imageTags[img.path] || []
+        return selectedTagsFilter.some((t) => tags.includes(t))
+      })
     setShowImgs(showImgs)
     let arr: string[] = showImgs.map((img) => img.dirPath)
     arr = Array.from(new Set(arr)).sort()
@@ -725,7 +796,7 @@ const PreviewImages: React.FC = () => {
     } else {
       setActiveKey((prev) => prev.filter((k) => arr.includes(k)))
     }
-  }, [imgs, keyword, showImageTypes])
+  }, [imgs, keyword, showImageTypes, selectedTagsFilter, imageTags])
 
 
 
@@ -1032,6 +1103,11 @@ const PreviewImages: React.FC = () => {
         disabled: selectedFullPaths.size === 0
       },
       {
+        key: 'editTags',
+        label: `Add / Edit Tags (${selectedFullPaths.size})`,
+        disabled: selectedFullPaths.size === 0
+      },
+      {
         key: 'reveal',
         label: 'Reveal in Explorer',
         disabled: selectedFullPaths.size !== 1
@@ -1062,6 +1138,8 @@ const PreviewImages: React.FC = () => {
         handleOpenMoveFolderModal()
       } else if (key === 'copyPath') {
         handleCopySelectedPaths()
+      } else if (key === 'editTags') {
+        handleOpenTagModalForSelected()
       } else if (key === 'reveal') {
         handleRevealInExplorer()
       } else if (key === 'delete') {
@@ -1075,6 +1153,7 @@ const PreviewImages: React.FC = () => {
       handleOpenGroupFolderModal,
       handleOpenMoveFolderModal,
       handleCopySelectedPaths,
+      handleOpenTagModalForSelected,
       handleRevealInExplorer,
       onDeleteImage
     ]
@@ -1210,6 +1289,9 @@ const PreviewImages: React.FC = () => {
       setHeaderCollapsed(data.headerCollapsed ?? false)
       setShowFolders(data.showFolders ?? true)
       setHostUiLanguage(typeof data.hostUiLanguage === 'string' ? data.hostUiLanguage : undefined)
+      if (data.imageTags && typeof data.imageTags === 'object') {
+        setImageTags(data.imageTags)
+      }
       configHydratedRef.current = true
     })
   }, [setUiThemePreference])
@@ -1231,10 +1313,11 @@ const PreviewImages: React.FC = () => {
         showFileName,
         cellAspectRatio,
         headerCollapsed,
-        showFolders
+        showFolders,
+        imageTags
       }
     })
-  }, [showImageTypes, backgroundColor, size, imageGridColumns, activeKey, keyword, imageSort, showFileName, cellAspectRatio, headerCollapsed, showFolders])
+  }, [showImageTypes, backgroundColor, size, imageGridColumns, activeKey, keyword, imageSort, showFileName, cellAspectRatio, headerCollapsed, showFolders, imageTags])
 
   useEffect(() => {
     if (!configHydratedRef.current) {
@@ -1272,7 +1355,7 @@ const PreviewImages: React.FC = () => {
     nextIncludeFolders: string[],
     nextExcludeFolders: string[],
     nextShowImageTypes: string[],
-    nextCellAspectRatio: '16:9' | '4:3' | '1:1',
+    nextCellAspectRatio: '16:9' | '4:3' | '1:1' | '3:4' | '9:16',
     nextImageGridColumns: number,
     nextShowFileName: boolean,
     nextShowFolders: boolean
@@ -1329,6 +1412,18 @@ const PreviewImages: React.FC = () => {
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
             />
+            {allUniqueTags.length > 0 && (
+              <Select
+                mode='multiple'
+                allowClear
+                placeholder='Tags...'
+                maxTagCount='responsive'
+                style={{ flex: '0 1 180px', minWidth: '110px' }}
+                value={selectedTagsFilter}
+                onChange={setSelectedTagsFilter}
+                options={allUniqueTags.map((t) => ({ label: t, value: t }))}
+              />
+            )}
             {showFolders && (
               <Dropdown menu={{ items: folderMenuItems, onClick: handleFolderMenuClick }}>
                 <Button>
@@ -1432,6 +1527,7 @@ const PreviewImages: React.FC = () => {
                               onDeleteImage={onDeleteImage}
                               onRenameImage={handleOpenRenameModal}
                               onRevealInExplorer={handleRevealInExplorer}
+                              onEditTags={handleOpenTagModalForSingle}
                               cellAspectRatio={cellAspectRatio}
                               onOpenPreview={handleOpenPreview}
                               onThumbResolved={handleThumbResolved}
@@ -1620,6 +1716,32 @@ const PreviewImages: React.FC = () => {
             placeholder='Generated 1-line CMD command will appear here...'
             style={{ fontFamily: 'monospace', fontSize: 12 }}
           />
+        </div>
+      </Modal>
+
+      {/* Modal: Edit Image Tags */}
+      <Modal
+        title={`Edit Tags (${tagModalTargetPaths.length} image${tagModalTargetPaths.length > 1 ? 's' : ''})`}
+        open={tagModalVisible}
+        onOk={handleSaveTagsModal}
+        onCancel={() => setTagModalVisible(false)}
+        okText='Save Tags'
+        width={480}
+      >
+        <div style={{ marginBottom: 8, fontSize: 13 }}>
+          Enter or select tags for {tagModalTargetPaths.length} target image(s):
+        </div>
+        <Select
+          mode='tags'
+          style={{ width: '100%' }}
+          placeholder='Type tag and press Enter (e.g. UI, Banner, Draft)'
+          value={tagInputValues}
+          onChange={setTagInputValues}
+          options={allUniqueTags.map((t) => ({ label: t, value: t }))}
+          tokenSeparators={[',']}
+        />
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--vscode-descriptionForeground)' }}>
+          Tip: Type any tag name and press Enter or comma to create it.
         </div>
       </Modal>
       {showSettingsModal && (

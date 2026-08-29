@@ -24,8 +24,8 @@ export interface IConfig {
   uiTheme?: WebviewUiThemePreference,
   imageSort?: ImageSortMode,
   showFileName?: boolean,
-  /** Cell aspect ratio: '16:9' (landscape screenshots), '4:3', or '1:1' (square). */
-  cellAspectRatio?: '16:9' | '4:3' | '1:1',
+  /** Cell aspect ratio: '16:9' (landscape screenshots), '4:3', '1:1' (square), '3:4' (portrait 3:4), or '9:16' (portrait 9:16). */
+  cellAspectRatio?: '16:9' | '4:3' | '1:1' | '3:4' | '9:16',
   /** Whether the header configuration panel is collapsed to focus on gallery. */
   headerCollapsed?: boolean,
   /** Whether folders are shown as accordions (true) or flattened into a single grid (false). */
@@ -35,4 +35,6 @@ export interface IConfig {
    * never persisted to the local config file.
    */
   hostUiLanguage?: string,
+  /** Mapping of image relative path or fsPath to array of tags (labels). */
+  imageTags?: Record<string, string[]>,
 }

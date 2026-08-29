@@ -32,13 +32,19 @@ interface IImageLazyLoadProps {
   onThumbResolved?: (_vscodePath: string, _thumbSrc: string) => void
   isSelected?: boolean
   onToggleSelect?: () => void
-  cellAspectRatio?: '16:9' | '4:3' | '1:1'
+  cellAspectRatio?: '16:9' | '4:3' | '1:1' | '3:4' | '9:16'
 }
 /* eslint-enable no-unused-vars */
 
 const CellShell = styled.div<{ $isSelected?: boolean; $aspectRatio?: string }>`
   width: 100%;
-  aspect-ratio: ${(props) => (props.$aspectRatio === '1:1' ? '1 / 1' : props.$aspectRatio === '4:3' ? '4 / 3' : '16 / 9')};
+  aspect-ratio: ${(props) => (
+    props.$aspectRatio === '1:1' ? '1 / 1' :
+    props.$aspectRatio === '4:3' ? '4 / 3' :
+    props.$aspectRatio === '3:4' ? '3 / 4' :
+    props.$aspectRatio === '9:16' ? '9 / 16' :
+    '16 / 9'
+  )};
   min-width: 0;
   min-height: 0;
   position: relative;
